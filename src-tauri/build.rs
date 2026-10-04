@@ -1,7 +1,26 @@
 fn main() {
-    tauri_build::try_build(
-        tauri_build::Attributes::new()
-            .app_manifest(tauri_build::AppManifest::new().commands(&["database_boot_status"])),
-    )
+    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
+        tauri_build::AppManifest::new().commands(&[
+            "database_boot_status",
+            "autostart_status",
+            "set_autostart",
+            "backup_database",
+            "restore_database",
+            "restore_status",
+            "show_quick_add",
+            "hide_quick_add",
+            "create_quick_task",
+            "global_shortcut_status",
+            "lifecycle_status",
+            "begin_main_write",
+            "finish_main_write",
+            "create_reminder",
+            "edit_reminder",
+            "delete_reminder",
+            "update_task_status",
+            "reconcile_reminders",
+            "reminder_scheduler_status",
+        ]),
+    ))
     .expect("failed to build Tauri application")
 }

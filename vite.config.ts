@@ -8,6 +8,14 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
+  build: {
+    rolldownOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        quickAdd: fileURLToPath(new URL("./quick-add.html", import.meta.url)),
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

@@ -1,0 +1,165 @@
+import { parseListId } from "./list";
+import { parseTagId } from "./tag";
+
+export type TaskStatus = "todo" | "completed";
+
+export interface Task {
+  id: number;
+  listId: number | null;
+  title: string;
+  notes: string;
+  status: TaskStatus;
+  dueAt: string | null;
+  completedAt: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskInput {
+  title: string;
+  listId?: number | null;
+  notes?: string;
+  dueAt?: string | null;
+}
+
+export interface UpdateTaskInput {
+  listId?: number | null;
+  title?: string;
+  notes?: string;
+  dueAt?: string | null;
+}
+
+export interface TaskFilters {
+  status?: TaskStatus;
+  listId?: number | null;
+  tagId?: number;
+  dateView?: "today" | "upcoming";
+  dateRange?: { from: string; to?: string };
+}
+
+export class TaskValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TaskValidationError";
+  }
+}
+
+export function parseTaskId(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new TaskValidationError("任务 ID 必须是正安全整数");
+  }
+  return value;
+}
+
+export function parseTaskStatus(value: unknown): TaskStatus {
+  if (value !== "todo" && value !== "completed") {
+    throw new TaskValidationError("任务状态无效");
+  }
+  return value;
+}
+
+export function parseTaskTitle(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new TaskValidationError("任务标题必须是文本");
+  }
+  if (value.includes("\0") || /[\uD800-\uDFFF]/u.test(value)) {
+    throw new TaskValidationError("任务标题包含无效字符");
+  }
+  const title = value.trim();
+  if (title.length < 1 || [...title].length > 500) {
+    throw new TaskValidationError("任务标题长度必须为 1 至 500 个字符");
+  }
+  return title;
+}
+
+export function parseTaskNotes(value: unknown): string {
+  if (typeof value !== "string" || [...value].length > 100000) {
+    throw new TaskValidationError("任务备注不得超过 100000 个字符");
+  }
+  return value;
+}
+
+const DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
+
+export function parseTaskTime(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new TaskValidationError("时间必须包含时区");
+  }
+  const match = DATE_TIME.exec(value);
+  if (!match) {
+    throw new TaskValidationError("时间必须是带时区的 ISO 8601 时刻");
+  }
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, fraction, , sign, offsetHourText, offsetMinuteText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const offsetHour = offsetHourText ? Number(offsetHourText) : 0;
+  const offsetMinute = offsetMinuteText ? Number(offsetMinuteText) : 0;
+  if (year === 0 || month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59 || offsetHour > 14 || offsetMinute > 59 || (offsetHour === 14 && offsetMinute !== 0)) {
+    throw new TaskValidationError("时间或时区偏移无效");
+  }
+  const local = new Date(0);
+  local.setUTCFullYear(year, month - 1, day);
+  local.setUTCHours(hour, minute, second, Number((fraction ?? "").padEnd(3, "0")));
+  if (local.getUTCFullYear() !== year || local.getUTCMonth() + 1 !== month || local.getUTCDate() !== day) {
+    throw new TaskValidationError("日期无效");
+  }
+  const offset = (offsetHour * 60 + offsetMinute) * 60000 * (sign === "-" ? -1 : 1);
+  const utc = new Date(local.getTime() - offset);
+  if (!Number.isFinite(utc.getTime()) || utc.getUTCFullYear() < 1 || utc.getUTCFullYear() > 9999) {
+    throw new TaskValidationError("时间超出可存储范围");
+  }
+  return utc.toISOString();
+}
+
+export function parseCreateTaskInput(value: CreateTaskInput): { title: string; notes: string; dueAt: string | null; listId: number | null } {
+  if (value === null || typeof value !== "object") {
+    throw new TaskValidationError("任务输入无效");
+  }
+  return {
+    title: parseTaskTitle(value.title),
+    listId: value.listId == null ? null : parseListId(value.listId),
+    notes: parseTaskNotes(value.notes ?? ""),
+    dueAt: value.dueAt == null ? null : parseTaskTime(value.dueAt),
+  };
+}
+
+export function parseUpdateTaskInput(value: UpdateTaskInput): UpdateTaskInput {
+  if (value === null || typeof value !== "object") {
+    throw new TaskValidationError("任务输入无效");
+  }
+  const result: UpdateTaskInput = {};
+  if (value.listId !== undefined) result.listId = value.listId === null ? null : parseListId(value.listId);
+  if (value.title !== undefined) result.title = parseTaskTitle(value.title);
+  if (value.notes !== undefined) result.notes = parseTaskNotes(value.notes);
+  if (value.dueAt !== undefined) result.dueAt = value.dueAt === null ? null : parseTaskTime(value.dueAt);
+  if (Object.keys(result).length === 0) {
+    throw new TaskValidationError("没有可更新的任务字段");
+  }
+  return result;
+}
+
+export function parseTaskFilters(value: TaskFilters = {}): TaskFilters {
+  if (value === null || typeof value !== "object") {
+    throw new TaskValidationError("任务筛选条件无效");
+  }
+  let date: Pick<TaskFilters, "dateView" | "dateRange"> = {};
+  if (value.dateView !== undefined || value.dateRange !== undefined) {
+    if ((value.dateView !== "today" && value.dateView !== "upcoming") || !value.dateRange || value.status === "completed") throw new TaskValidationError("日期视图条件无效");
+    const from = parseTaskTime(value.dateRange.from);
+    const to = value.dateRange.to === undefined ? undefined : parseTaskTime(value.dateRange.to);
+    if ((value.dateView === "today" && (!to || to <= from)) || (value.dateView === "upcoming" && to !== undefined)) throw new TaskValidationError("日期范围无效");
+    date = { dateView: value.dateView, dateRange: { from, ...(to === undefined ? {} : { to }) } };
+  }
+  return {
+    ...(value.status === undefined ? {} : { status: parseTaskStatus(value.status) }),
+    ...(value.listId === undefined ? {} : { listId: value.listId === null ? null : parseListId(value.listId) }),
+    ...(value.tagId === undefined ? {} : { tagId: parseTagId(value.tagId) }),
+    ...date,
+    ...(date.dateView ? { status: "todo" as const } : {}),
+  };
+}

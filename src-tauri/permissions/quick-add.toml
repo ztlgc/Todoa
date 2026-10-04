@@ -1,0 +1,14 @@
+[[permission]]
+identifier = "main-show-quick-add"
+description = "Main may show and focus the existing Quick Add window."
+commands.allow = ["show_quick_add"]
+
+[[permission]]
+identifier = "quick-create-task"
+description = "Quick Add may create an Inbox task using only a validated title."
+commands.allow = ["create_quick_task"]
+
+[[permission]]
+identifier = "quick-hide-window"
+description = "Quick Add may hide its own existing window."
+commands.allow = ["hide_quick_add"]

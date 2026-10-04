@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "main-backup-restore"
+description = "Main-only Rust dialog, validated backup and controlled restore; no renderer paths"
+commands.allow = ["backup_database", "restore_database", "restore_status"]

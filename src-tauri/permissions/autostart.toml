@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "main-autostart"
+description = "Main reads actual OS autostart state and requests fixed per-user registration"
+commands.allow = ["autostart_status", "set_autostart"]

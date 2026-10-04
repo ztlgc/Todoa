@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "quick-add",
+  "description": "Quick Add: title creation, own hiding and focus subscriptions only",
+  "windows": ["quick-add"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "quick-create-task",
+    "quick-hide-window"
+  ]
+}

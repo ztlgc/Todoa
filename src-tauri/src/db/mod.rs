@@ -4,6 +4,8 @@ use sqlx::{Connection, Row, SqliteConnection, SqlitePool};
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_sql::{DbInstances, DbPool, Migration, MigrationKind};
 
+pub mod backup;
+
 pub const DATABASE_URL: &str = "sqlite:todo.db";
 pub const SCHEMA_VERSION: i64 = 1;
 const APPLICATION_ID: i64 = 0x5754_4431;
@@ -14,15 +16,24 @@ pub enum BootState {
     Failed(&'static str),
 }
 
-pub fn plugin<R: Runtime>() -> tauri::plugin::TauriPlugin<R, Option<tauri_plugin_sql::PluginConfig>>
-{
+pub fn plugin<R: Runtime>(
+    fail_migration: bool,
+) -> tauri::plugin::TauriPlugin<R, Option<tauri_plugin_sql::PluginConfig>> {
     tauri_plugin_sql::Builder::new()
         .add_migrations(
             DATABASE_URL,
             vec![Migration {
                 version: SCHEMA_VERSION,
                 description: "initial_schema",
-                sql: include_str!("../../migrations/0001_initial.sql"),
+                sql: if fail_migration
+                    && cfg!(all(
+                        debug_assertions,
+                        feature = "test-restore-startup-failure"
+                    )) {
+                    "SELECT todoa_invalid_restore_migration;"
+                } else {
+                    include_str!("../../migrations/0001_initial.sql")
+                },
                 kind: MigrationKind::Up,
             }],
         )
@@ -130,7 +141,7 @@ async fn inspect_existing_connection(
     Ok(())
 }
 
-pub async fn verify<R: Runtime>(app: &AppHandle<R>) -> Result<(), &'static str> {
+pub async fn shared_pool<R: Runtime>(app: &AppHandle<R>) -> Result<SqlitePool, &'static str> {
     let instances = app
         .try_state::<DbInstances>()
         .ok_or("SQL_PLUGIN_NOT_READY")?;
@@ -141,6 +152,11 @@ pub async fn verify<R: Runtime>(app: &AppHandle<R>) -> Result<(), &'static str> 
             _ => return Err("SQL_POOL_NOT_READY"),
         }
     };
+    Ok(pool)
+}
+
+pub async fn verify<R: Runtime>(app: &AppHandle<R>) -> Result<(), &'static str> {
+    let pool = shared_pool(app).await?;
 
     let journal_mode: String = sqlx::query_scalar("PRAGMA journal_mode")
         .fetch_one(&pool)

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "main-global-shortcut-status"
+description = "Main may read the fixed Rust shortcut registration result."
+commands.allow = ["global_shortcut_status"]

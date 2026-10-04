@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "main-lifecycle-status"
+description = "Main may read tray availability and quitting state."
+commands.allow = ["lifecycle_status"]
+
+[[permission]]
+identifier = "main-write-lifecycle"
+description = "Main SQL adapter may acquire and finish its own write leases."
+commands.allow = ["begin_main_write", "finish_main_write"]

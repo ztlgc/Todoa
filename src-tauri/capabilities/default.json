@@ -1,14 +1,22 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Main: Ready, Repository SQL, events, fixed Quick Add/status and write lifecycle",
   "windows": [
     "main"
   ],
   "permissions": [
-    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "main-database-boot-status",
+    "main-show-quick-add",
+    "main-global-shortcut-status",
+    "main-lifecycle-status",
+    "main-write-lifecycle",
     "sql:allow-select",
-    "sql:allow-execute"
+    "sql:allow-execute",
+    "main-reminders",
+    "main-backup-restore",
+    "main-autostart"
   ]
 }

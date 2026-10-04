@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "main-reminders"
+description = "Main-only reminder service and transactional completion"
+commands.allow = ["create_reminder", "edit_reminder", "delete_reminder", "update_task_status", "reconcile_reminders", "reminder_scheduler_status"]

@@ -7,6 +7,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+/docs/evidence
+
 node_modules
 dist
 dist-ssr
@@ -22,6 +24,8 @@ dist-ssr
 *.key
 /.local-test-data/
 /backups/
+__pycache__/
+*.pyc
 
 # Editor directories and files
 .vscode/*
