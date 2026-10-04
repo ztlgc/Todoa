@@ -1,0 +1,10 @@
+{
+  "productName": "Todoa ACL Test",
+  "identifier": "com.todoa.desktop.test.acl",
+  "app": {
+    "windows": [
+      { "label": "main", "title": "Todoa", "width": 800, "height": 600 },
+      { "label": "acl-probe", "title": "Todoa ACL Probe", "width": 600, "height": 360 }
+    ]
+  }
+}

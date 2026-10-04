@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "main-database-boot-status"
+description = "Allow the main window to read the verified database startup state."
+commands.allow = ["database_boot_status"]
