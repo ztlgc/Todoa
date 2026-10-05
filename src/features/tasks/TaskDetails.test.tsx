@@ -7,19 +7,50 @@ import { taskRepository } from "@/data/repositories/TaskRepository";
 import type { Task } from "@/domain/task";
 import { TaskDetails } from "./TaskDetails";
 
-vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { getById: vi.fn(), update: vi.fn() } }));
+vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { getById: vi.fn(), update: vi.fn(), updateStatus: vi.fn(), delete: vi.fn() } }));
 vi.mock("@/features/tags/TaskTags", () => ({ TaskTags: () => <p>标签入口</p> }));
 vi.mock("@/features/reminders/TaskReminders", () => ({ TaskReminders: () => <p>提醒入口</p> }));
 const task: Task = { id: 1, listId: null, title: "原始标题", notes: "原始备注", dueAt: null, status: "todo", completedAt: null, sortOrder: 0, createdAt: "2026-10-04T00:00:00.000Z", updatedAt: "2026-10-04T00:00:00.000Z" };
 let client: ReturnType<typeof createLocalQueryClient>;
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(taskRepository.getById).mockResolvedValue(task); client = createLocalQueryClient(); });
-afterEach(() => { cleanup(); client.clear(); document.querySelectorAll("[data-test-return]").forEach(element => element.remove()); });
+afterEach(() => { cleanup(); client.clear(); document.querySelectorAll("[data-test-return]").forEach(element => element.remove()); Reflect.deleteProperty(window, "matchMedia"); });
 function setup() {
   const returnTo = document.createElement("button"); returnTo.textContent = "返回任务"; returnTo.dataset.testReturn = "true"; document.body.append(returnTo);
   const closed = vi.fn();
   render(<QueryClientProvider client={client}><TaskDetails id={1} lists={[]} listsUnavailable={false} taskTags={[]} tags={[]} tagsUnavailable={false} returnTo={returnTo} onClosed={closed} /></QueryClientProvider>);
   return { returnTo, closed };
 }
+it("uses a nonmodal inspector on wide windows and confirms dirty close", async () => {
+  Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }) });
+  const { closed, returnTo } = setup();
+  const title = await screen.findByLabelText("任务标题");
+  expect(screen.getByRole("complementary", { name: "任务详情" })).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.change(title, { target: { value: "未保存标题" } });
+  fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
+  await screen.findByText("放弃未保存的修改？");
+  fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+  expect((title as HTMLInputElement).value).toBe("未保存标题");
+  fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
+  fireEvent.click(await screen.findByRole("button", { name: "放弃修改并关闭" }));
+  await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+  await waitFor(() => expect(document.activeElement).toBe(returnTo));
+});
+it("offers real status and permanent delete actions in the inspector", async () => {
+  vi.mocked(taskRepository.updateStatus).mockResolvedValue();
+  vi.mocked(taskRepository.delete).mockResolvedValue();
+  const { closed } = setup();
+  fireEvent.click(await screen.findByRole("checkbox", { name: "完成任务" }));
+  await waitFor(() => expect(taskRepository.updateStatus).toHaveBeenCalledWith(1, "completed"));
+  fireEvent.click(screen.getByRole("button", { name: "永久删除任务" }));
+  await screen.findByText("任务及关联的标签关系、提醒将被删除，此操作无法撤销。未保存的任务输入也会丢失。");
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  expect(taskRepository.delete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "永久删除任务" }));
+  fireEvent.click(await screen.findByRole("button", { name: "永久删除" }));
+  await waitFor(() => expect(taskRepository.delete).toHaveBeenCalledWith(1));
+  await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+});
 it("preserves drafts on failure/refetch, guards IME and duplicate submissions, traps/returns focus", async () => {
   const { returnTo } = setup(); const title = await screen.findByLabelText("任务标题");
   await waitFor(() => expect(document.activeElement).toBe(title));

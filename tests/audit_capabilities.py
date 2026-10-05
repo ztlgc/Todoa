@@ -31,6 +31,8 @@ if args.step >= 18:
 if args.step >= 19:
     main.add('main-autostart')
     commands.update({'autostart_status', 'set_autostart'})
+if args.step >= 20:
+    main.add('core:app:allow-version')
 schema = json.loads((ROOT / 'gen/schemas/desktop-schema.json').read_text(encoding='utf-8'))
 known = set(re.findall(r'"const": "([^"]+)"', json.dumps(schema)))
 seen = set()

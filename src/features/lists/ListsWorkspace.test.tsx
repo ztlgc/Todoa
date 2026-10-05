@@ -40,7 +40,58 @@ beforeEach(() => {
   vi.mocked(taskRepository.update).mockImplementation(async (id, input) => { tasks = tasks.map(item => item.id === id ? { ...item, ...input } : item); return tasks.find(item => item.id === id)!; });
   vi.mocked(taskRepository.setList).mockImplementation(async (id, listId) => { tasks = tasks.map((item) => item.id === id ? { ...item, listId } : item); });
 });
-afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear()); onlineManager.setOnline(true); });
+afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear()); onlineManager.setOnline(true); Reflect.deleteProperty(window, "matchMedia"); });
+
+it("separates task navigation from settings groups", async () => {
+  setup();
+  const rail = screen.getByRole("navigation", { name: "一级导航" });
+  expect(rail.querySelectorAll("button")).toHaveLength(2);
+  expect(screen.getByRole("navigation", { name: "任务视图" }).querySelectorAll("button")).toHaveLength(5);
+  expect(await screen.findByRole("button", { name: "打开清单：工作" })).toBeTruthy();
+  expect(screen.getByRole("form", { name: "创建标签" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "打开今天" }));
+  await screen.findByRole("heading", { name: "今天" });
+  expect(screen.getByRole("button", { name: "打开清单：工作" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /^设置$/ }));
+  await screen.findByRole("heading", { name: "常规" });
+  expect(screen.queryByRole("navigation", { name: "任务视图" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /^数据$/ }));
+  await screen.findByRole("heading", { name: "数据" });
+  fireEvent.click(screen.getByRole("button", { name: /^任务$/ }));
+  await screen.findByRole("heading", { name: "收件箱" });
+});
+
+it("closes compact navigation after choosing a task view", async () => {
+  setup();
+  const trigger = screen.getByRole("button", { name: "打开任务视图" });
+  fireEvent.click(trigger);
+  const close = screen.getByRole("button", { name: "关闭视图导航" });
+  await waitFor(() => expect(document.activeElement).toBe(close));
+  fireEvent.keyDown(close, { key: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+  expect(document.querySelector('button[aria-label="关闭视图导航背景"]')).toBeNull();
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole("button", { name: "打开今天" }));
+  await screen.findByRole("heading", { name: "今天" });
+  expect(document.querySelector('button[aria-label="关闭视图导航背景"]')).toBeNull();
+});
+
+it("confirms before replacing a dirty wide inspector", async () => {
+  Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }) });
+  tasks = [task, { ...task, id: 2, title: "Second task" }];
+  setup();
+  fireEvent.click(await screen.findByRole("button", { name: "打开清单：工作" }));
+  fireEvent.click(await screen.findByRole("button", { name: "编辑任务：Work task" }));
+  const title = await screen.findByLabelText("任务标题");
+  fireEvent.change(title, { target: { value: "Unsaved title" } });
+  fireEvent.click(screen.getByRole("button", { name: "编辑任务：Second task" }));
+  await screen.findByText("当前任务详情尚未保存。放弃修改并打开另一项任务？");
+  fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+  expect((title as HTMLInputElement).value).toBe("Unsaved title");
+  fireEvent.click(screen.getByRole("button", { name: "编辑任务：Second task" }));
+  fireEvent.click(await screen.findByRole("button", { name: "放弃输入并继续" }));
+  await waitFor(() => expect((screen.getByLabelText("任务标题") as HTMLInputElement).value).toBe("Second task"));
+});
 
 it("creates a selected list and new task in it while offline; renames and invalidates caches", async () => {
   onlineManager.setOnline(false);

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Todoa 图标">
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#252B32"/>
+  <rect x="107" y="94" width="298" height="324" rx="55" fill="#F7F5EF"/>
+  <path d="M162 178h126M162 228h82" fill="none" stroke="#646B70" stroke-width="23" stroke-linecap="round"/>
+  <path d="m158 308 65 62 132-141" fill="none" stroke="#D9784F" stroke-width="45" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

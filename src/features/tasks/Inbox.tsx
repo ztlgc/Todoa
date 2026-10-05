@@ -7,6 +7,7 @@ import type { TaskList } from "@/domain/list";
 import type { Tag, TaskTag } from "@/domain/tag";
 import { TaskDetails } from "./TaskDetails";
 import { useCreateTask, useDeleteTask, useTasks, useUpdateTaskStatus } from "./queries";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
 function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task: Task, returnTo: HTMLElement | null) => void }) {
   const update = useUpdateTaskStatus(), remove = useDeleteTask();
@@ -40,7 +41,7 @@ function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task:
       <Button ref={deleteButton} variant="ghost" size="sm" disabled={pending || confirming} onClick={() => { setConfirming(true); requestAnimationFrame(() => cancelButton.current?.focus()); }} aria-label={`删除：${task.title}`}>删除</Button>
     </div>
     {confirming && <div role="group" aria-label={`确认删除：${task.title}`} className="space-y-3 rounded-lg bg-muted p-3" onKeyDown={event => { if (event.key === "Escape" && !pending) { event.stopPropagation(); setConfirming(false); deleteButton.current?.focus(); } }}>
-      <p className="break-all text-sm">永久删除“{task.title}”？此操作无法撤销。</p>
+      <p className="break-all text-sm">永久删除“{task.title}”？任务及关联的标签关系、提醒将被删除，此操作无法撤销。</p>
       <div className="flex flex-wrap gap-2"><Button variant="destructive" disabled={pending} onClick={() => void deleteTask()}>{remove.isPending ? "正在删除…" : "永久删除"}</Button><Button ref={cancelButton} variant="outline" disabled={pending} onClick={() => { setConfirming(false); setError(undefined); deleteButton.current?.focus(); }}>取消</Button></div>
     </div>}
     {pending && <p role="status" className="text-xs text-muted-foreground">正在保存…</p>}
@@ -48,13 +49,15 @@ function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task:
   </li>;
 }
 export function Inbox() { return <TaskListView listId={null} name="收件箱" />; }
-export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable = false, tags, taskTags = [], tagsUnavailable = false, dateFilters, now = new Date(), onDraftChange, onBusyChange, initialDraft = "" }: {
+export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable = false, tags, taskTags = [], tagsUnavailable = false, dateFilters, now = new Date(), onDraftChange, onBusyChange, onDetailDirtyChange, initialDraft = "" }: {
   listId?: number | null; tagId?: number; name: string; lists?: TaskList[]; listsUnavailable?: boolean; tags?: Tag[]; taskTags?: TaskTag[]; tagsUnavailable?: boolean;
-  dateFilters?: TaskFilters; now?: Date; onDraftChange?: (dirty: boolean, draft: string) => void; onBusyChange?: (busy: boolean) => void; initialDraft?: string;
+  dateFilters?: TaskFilters; now?: Date; onDraftChange?: (dirty: boolean, draft: string) => void; onBusyChange?: (busy: boolean) => void; onDetailDirtyChange?: (dirty: boolean) => void; initialDraft?: string;
 }) {
   const tasks = useTasks(dateFilters ?? (tagId === undefined ? { listId } : { tagId })), create = useCreateTask();
   const [draft, setDraft] = useState(initialDraft), [error, setError] = useState<string>();
   const [detail, setDetail] = useState<{ id: number; returnTo: HTMLElement | null }>();
+  const detailDirty = useRef(false);
+  const { confirm: confirmSwitch, confirmation: switchConfirmation } = useConfirmDialog();
   const composing = useRef(false), submitting = useRef(false);
   const unavailable = tasks.isPending || tasks.isError;
   const canCreate = tagId === undefined && !dateFilters;
@@ -67,7 +70,8 @@ export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable
     catch { setError("新增失败，输入已保留。请稍后重试。"); }
     finally { submitting.current = false; onBusyChange?.(false); }
   }
-  return <section aria-labelledby="inbox-heading" className="space-y-6">
+  return <section aria-labelledby="inbox-heading" className={`space-y-6 ${detail ? "min-[1100px]:pr-[min(456px,38vw)]" : ""}`}>
+    {switchConfirmation}
     <header className="space-y-2"><h1 id="inbox-heading" tabIndex={-1} className="break-all text-3xl font-semibold tracking-tight outline-none">{name}</h1><p className="text-sm text-muted-foreground">{dateFilters ? "只显示未完成且有截止时间的任务 · 本地日期" : "记录待办，按自己的节奏完成。点击标题编辑详情。"}</p></header>
     {canCreate ? <form aria-label="新增任务" onSubmit={event => void submit(event)} className="space-y-2 rounded-xl border border-border bg-card p-4">
       <label htmlFor="task-title" className="text-sm font-medium">新任务</label>
@@ -77,7 +81,7 @@ export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable
     {tasks.isPending && <p role="status" className="py-8 text-center text-sm text-muted-foreground">正在读取{name}…</p>}
     {tasks.isError && <div role="alert" className="space-y-3 rounded-xl border border-border p-4"><p className="text-sm">{name}读取失败。请重试。</p><Button variant="outline" disabled={tasks.isFetching} onClick={() => void tasks.refetch()}>重新读取</Button></div>}
     {tasks.isSuccess && tasks.data.length === 0 && <div className="rounded-xl border border-dashed border-border p-10 text-center"><p className="break-all font-medium">{name}为空</p><p className="mt-2 text-sm text-muted-foreground">{canCreate ? "在上方添加第一项任务。" : "当前没有符合筛选条件的任务。"}</p></div>}
-    {tasks.isSuccess && tasks.data.length > 0 && <div className="space-y-3"><p role="status" className="text-sm text-muted-foreground">{tasks.data.length} 项任务 · {tasks.data.filter(task => task.status === "completed").length} 项已完成</p><ul aria-label={`${name}任务`} className="divide-y divide-border rounded-xl border border-border bg-card">{tasks.data.map(task => <TaskItem key={task.id} task={task} now={now} onEdit={(value, returnTo) => setDetail({ id: value.id, returnTo })} />)}</ul></div>}
-    {detail && <TaskDetails key={detail.id} {...detail} lists={lists} listsUnavailable={listsUnavailable} tags={tags} taskTags={taskTags} tagsUnavailable={tagsUnavailable} onClosed={() => setDetail(undefined)} />}
+    {tasks.isSuccess && tasks.data.length > 0 && <div className="space-y-3"><p role="status" className="text-sm text-muted-foreground">{tasks.data.length} 项任务 · {tasks.data.filter(task => task.status === "completed").length} 项已完成</p><ul aria-label={`${name}任务`} className="divide-y divide-border rounded-xl border border-border bg-card">{tasks.data.map(task => <TaskItem key={task.id} task={task} now={now} onEdit={(value, returnTo) => { void (async () => { if (detail?.id === value.id) return; if (detailDirty.current && !(await confirmSwitch("当前任务详情尚未保存。放弃修改并打开另一项任务？"))) return; detailDirty.current = false; onDetailDirtyChange?.(false); setDetail({ id: value.id, returnTo }); })(); }} />)}</ul></div>}
+    {detail && <TaskDetails key={detail.id} {...detail} lists={lists} listsUnavailable={listsUnavailable} tags={tags} taskTags={taskTags} tagsUnavailable={tagsUnavailable} onDirtyChange={value => { detailDirty.current = value; onDetailDirtyChange?.(value); }} onClosed={() => setDetail(undefined)} />}
   </section>;
 }

@@ -1,4 +1,5 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListValidationError, parseListName, type TaskList } from "@/domain/list";
@@ -84,13 +85,30 @@ function ListControls({ list, onDeleted, onDraftChange, onBusyChange, beforeDele
 }
 
 type View = "inbox" | "today" | "upcoming" | "lists" | "list" | "tags" | "settings";
+type SettingsGroup = "general" | "data" | "about";
 export function ListsWorkspace() {
   const lists = useLists(), create = useCreateList(), tags = useTags(), taskTags = useTaskTags();
   const [view, setView] = useState<View>("inbox");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null), sidebarTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (sidebarOpen) requestAnimationFrame(() => sidebarRef.current?.querySelector<HTMLButtonElement>('button[aria-label="关闭视图导航"]')?.focus()); }, [sidebarOpen]);
+  function closeSidebar() { setSidebarOpen(false); requestAnimationFrame(() => sidebarTrigger.current?.focus()); }
+  function sidebarKeys(event: KeyboardEvent<HTMLElement>) {
+    if (!sidebarOpen) return;
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeSidebar(); return; }
+    if (event.key !== "Tab") return;
+    const focusable = [...(sidebarRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]') ?? [])].filter(element => element.getClientRects().length > 0);
+    if (!focusable.length) return;
+    if (event.shiftKey && document.activeElement === focusable[0]) { event.preventDefault(); focusable[focusable.length - 1].focus(); }
+    else if (!event.shiftKey && document.activeElement === focusable[focusable.length - 1]) { event.preventDefault(); focusable[0].focus(); }
+  }
+  const [settingsGroup, setSettingsGroup] = useState<SettingsGroup>("general");
+  const [version, setVersion] = useState<string>();
+  useEffect(() => { void getVersion().then(setVersion).catch(() => setVersion("读取失败")); }, []);
   const [selectedId, setSelectedId] = useState<number | null>(null), [selectedTagId, setSelectedTagId] = useState<number | null>(null);
   const [draft, setDraft] = useState(""), [error, setError] = useState<string>();
   const [taskDraft, setTaskDraft] = useState("");
-  const writing = useRef(false), composing = useRef(false), taskDirty = useRef(false), renameDirty = useRef(false), childBusy = useRef(false);
+  const writing = useRef(false), composing = useRef(false), taskDirty = useRef(false), renameDirty = useRef(false), detailDirty = useRef(false), childBusy = useRef(false);
   const now = useLocalClock(), range = localDayRange(now);
   const { confirm, confirmation } = useConfirmDialog();
   const selected = lists.data?.find(list => list.id === selectedId), selectedTag = tags.data?.find(tag => tag.id === selectedTagId);
@@ -98,10 +116,11 @@ export function ListsWorkspace() {
   async function navigate(next: View, id: number | null = null, tag: number | null = null, afterWrite = false) {
     if (childBusy.current || (writing.current && !afterWrite)) return;
     if (next === view && id === selectedId && tag === selectedTagId) return;
-    if ((taskDirty.current || renameDirty.current) && !(await confirm("当前任务输入或清单名称尚未保存。放弃输入并切换视图？"))) return;
-    taskDirty.current = false; renameDirty.current = false;
+    if ((taskDirty.current || renameDirty.current || detailDirty.current) && !(await confirm("当前任务输入或清单名称尚未保存。放弃输入并切换视图？"))) return;
+    taskDirty.current = false; renameDirty.current = false; detailDirty.current = false;
     setTaskDraft("");
     setSelectedId(id); setSelectedTagId(tag); setView(next);
+    setSidebarOpen(false);
     requestAnimationFrame(() => document.getElementById("inbox-heading")?.focus());
   }
   async function addList(event: FormEvent) {
@@ -113,12 +132,21 @@ export function ListsWorkspace() {
     catch { setError("创建清单失败，输入已保留。请重试。"); }
     finally { writing.current = false; }
   }
-  const nav: { view: View; name: string }[] = [{ view: "inbox", name: "收件箱" }, { view: "today", name: "今天" }, { view: "upcoming", name: "即将到来" }, { view: "lists", name: "清单" }, { view: "tags", name: "标签" }, { view: "settings", name: "设置" }];
-  return <div className="grid min-w-0 gap-8 md:grid-cols-[210px_minmax(0,1fr)]">
+  const nav: { view: View; name: string }[] = [{ view: "inbox", name: "收件箱" }, { view: "today", name: "今天" }, { view: "upcoming", name: "即将到来" }, { view: "lists", name: "清单" }, { view: "tags", name: "标签" }];
+  return <div className="grid min-w-0 grid-cols-[64px_minmax(0,1fr)] gap-3 md:grid-cols-[64px_210px_minmax(0,1fr)]">
     {confirmation}
-    <aside className="min-w-0 space-y-6 rounded-xl border border-border bg-card p-3 md:self-start" aria-label="导航与管理">
-      <nav aria-label="主导航" className="grid grid-cols-2 gap-1 md:grid-cols-1">{nav.map(item => <Button key={item.view} className="w-full justify-start" variant={activeView === item.view || (item.view === "lists" && activeView === "list") ? "secondary" : "ghost"} aria-current={activeView === item.view ? "page" : undefined} aria-label={`打开${item.name}`} onClick={() => navigate(item.view)}>{item.name}</Button>)}</nav>
-      <div hidden={activeView !== "lists" && activeView !== "list"} className="space-y-4">
+    <nav aria-label="一级导航" className="flex flex-col gap-1 self-start rounded-xl border border-border bg-card p-2">
+      <Button className="min-w-0 w-full px-1" variant={activeView !== "settings" ? "secondary" : "ghost"} aria-current={activeView !== "settings" ? "page" : undefined} onClick={() => void navigate("inbox")}>任务</Button>
+      <Button className="min-w-0 w-full px-1" variant={activeView === "settings" ? "secondary" : "ghost"} aria-current={activeView === "settings" ? "page" : undefined} onClick={() => void navigate("settings")}>设置</Button>
+    </nav>
+    {sidebarOpen && <button className="fixed inset-0 z-30 bg-black/30 md:hidden" aria-label="关闭视图导航背景" tabIndex={-1} onClick={closeSidebar} />}
+    <aside ref={sidebarRef} onKeyDown={sidebarKeys} className={`${sidebarOpen ? "fixed inset-y-4 left-4 z-40 block w-[min(280px,calc(100vw-2rem))] overflow-y-auto" : "hidden"} min-w-0 space-y-6 rounded-xl border border-border bg-card p-3 md:static md:block md:w-auto md:self-start`} aria-label={activeView === "settings" ? "设置分组" : "任务导航与管理"}>
+      <Button variant="ghost" aria-label="关闭视图导航" className="w-full md:hidden" onClick={closeSidebar}>关闭导航</Button>
+      {activeView === "settings" ? <nav aria-label="设置分组" className="space-y-1">
+        {([{ id: "general", label: "常规" }, { id: "data", label: "数据" }, { id: "about", label: "关于" }] as const).map(group => <Button key={group.id} className="w-full justify-start" variant={settingsGroup === group.id ? "secondary" : "ghost"} aria-current={settingsGroup === group.id ? "page" : undefined} onClick={() => { setSettingsGroup(group.id); requestAnimationFrame(() => document.getElementById("inbox-heading")?.focus()); }}>{group.label}</Button>)}
+      </nav> : <nav aria-label="任务视图" className="grid grid-cols-2 gap-1 md:grid-cols-1">{nav.map(item => <Button key={item.view} className="w-full justify-start" variant={activeView === item.view || (item.view === "lists" && activeView === "list") ? "secondary" : "ghost"} aria-current={activeView === item.view || (item.view === "lists" && activeView === "list") ? "page" : undefined} aria-label={`打开${item.name}`} onClick={() => void navigate(item.view)}>{item.name}</Button>)}</nav>}
+      <div hidden={activeView === "settings"} className="space-y-4 border-t border-border pt-4">
+        <h2 className="text-sm font-medium">我的清单</h2>
         <nav aria-label="任务清单" className="space-y-1">{lists.data?.map(list => <Button key={list.id} className="h-auto w-full justify-start whitespace-normal break-all text-left" variant={selected?.id === list.id ? "secondary" : "ghost"} aria-label={`打开清单：${list.name}`} aria-current={selected?.id === list.id ? "page" : undefined} onClick={() => navigate("list", list.id)}>{list.name}</Button>)}</nav>
         {lists.isPending && <p role="status">正在读取清单…</p>}
         {lists.isError && <p role="alert">清单读取失败。<Button onClick={() => void lists.refetch()}>重试清单</Button></p>}
@@ -127,17 +155,18 @@ export function ListsWorkspace() {
           <Button type="submit" variant="outline" disabled={create.isPending || !lists.isSuccess}>{create.isPending ? "正在创建…" : "创建清单"}</Button>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         </form>
       </div>
-      <div hidden={activeView !== "tags"}><TagSidebar selectedId={selectedTag?.id ?? null} onSelect={id => navigate("tags", null, id)} onDeleted={id => setSelectedTagId(current => current === id ? null : current)} /></div>
+      <div hidden={activeView === "settings"}><TagSidebar selectedId={selectedTag?.id ?? null} onSelect={id => navigate("tags", null, id)} onDeleted={id => setSelectedTagId(current => current === id ? null : current)} /></div>
       <p className="border-t pt-3 text-xs text-muted-foreground">任务保存在此电脑</p>
     </aside>
     <div className="min-w-0 space-y-5">
-      {activeView === "settings" ? <section aria-labelledby="inbox-heading"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">设置</h1><p className="mt-2 text-sm text-muted-foreground">管理本地数据与系统启动。</p><BackupRestorePanel /><AutostartSettings /></section> : activeView === "lists" ? <section aria-labelledby="inbox-heading" className="space-y-5"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">清单</h1><p className="text-sm text-muted-foreground">在左侧创建清单，打开清单后可重命名或删除。</p>{lists.data?.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center">还没有清单</p>}<div className="grid gap-3 sm:grid-cols-2">{lists.data?.map(list => <Button key={list.id} variant="outline" className="h-auto justify-start whitespace-normal break-all p-4 text-left" onClick={() => navigate("list", list.id)}>{list.name}</Button>)}</div></section> : activeView === "tags" && !selectedTag ? <section aria-labelledby="inbox-heading" className="space-y-5"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">标签</h1><p className="text-sm text-muted-foreground">创建标签，或选中标签查看已关联的任务。任务详情中可分配和移除标签。</p>{tags.isSuccess && tags.data.length === 0 && <p className="rounded-xl border border-dashed p-8">还没有标签</p>}</section> : <>
+      <Button ref={sidebarTrigger} variant="outline" className="md:hidden" onClick={() => setSidebarOpen(true)}>打开{activeView === "settings" ? "设置分组" : "任务视图"}</Button>
+      {activeView === "settings" ? <section aria-labelledby="inbox-heading"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">{settingsGroup === "general" ? "常规" : settingsGroup === "data" ? "数据" : "关于"}</h1>{settingsGroup === "general" ? <AutostartSettings /> : settingsGroup === "data" ? <BackupRestorePanel /> : <p className="mt-4 text-sm">Todoa 版本：{version ?? "读取中…"}</p>}</section> : activeView === "lists" ? <section aria-labelledby="inbox-heading" className="space-y-5"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">清单</h1><p className="text-sm text-muted-foreground">在左侧创建清单，打开清单后可重命名或删除。</p>{lists.data?.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center">还没有清单</p>}<div className="grid gap-3 sm:grid-cols-2">{lists.data?.map(list => <Button key={list.id} variant="outline" className="h-auto justify-start whitespace-normal break-all p-4 text-left" onClick={() => navigate("list", list.id)}>{list.name}</Button>)}</div></section> : activeView === "tags" && !selectedTag ? <section aria-labelledby="inbox-heading" className="space-y-5"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">标签</h1><p className="text-sm text-muted-foreground">创建标签，或选中标签查看已关联的任务。任务详情中可分配和移除标签。</p>{tags.isSuccess && tags.data.length === 0 && <p className="rounded-xl border border-dashed p-8">还没有标签</p>}</section> : <>
         {taskTags.isError && <p role="alert">任务标签读取失败。<Button onClick={() => void taskTags.refetch()}>重试任务标签</Button></p>}
         <TaskListView key={`${activeView}-${selected?.id ?? "inbox"}-${selectedTag?.id ?? "none"}`} name={activeView === "today" ? "今天" : activeView === "upcoming" ? "即将到来" : activeView === "tags" ? `标签：${selectedTag?.name}` : activeView === "list" ? selected?.name ?? "清单" : "收件箱"}
           listId={activeView === "inbox" ? null : activeView === "list" ? selected?.id : undefined} tagId={activeView === "tags" ? selectedTag?.id : undefined}
           dateFilters={activeView === "today" ? { dateView: "today", dateRange: range } : activeView === "upcoming" ? { dateView: "upcoming", dateRange: { from: range.to } } : undefined}
           lists={lists.data ?? []} listsUnavailable={!lists.isSuccess} tags={tags.data ?? []} taskTags={taskTags.data ?? []} tagsUnavailable={!tags.isSuccess || !taskTags.isSuccess} now={now}
-          initialDraft={taskDraft} onDraftChange={(value, text) => { taskDirty.current = value; setTaskDraft(text); }} onBusyChange={value => { childBusy.current = value; }} />
+          initialDraft={taskDraft} onDraftChange={(value, text) => { taskDirty.current = value; setTaskDraft(text); }} onDetailDirtyChange={value => { detailDirty.current = value; }} onBusyChange={value => { childBusy.current = value; }} />
         {activeView === "list" && selected && <ListControls key={`controls-${selected.id}`} list={selected} beforeDelete={() => taskDirty.current ? confirm("此清单有未保存的新任务输入。删除清单后输入将保留在收件箱，是否继续？", "继续删除清单") : Promise.resolve(true)} onDeleted={() => { renameDirty.current = false; setSelectedId(null); setView("inbox"); }} onDraftChange={value => { renameDirty.current = value; }} onBusyChange={value => { childBusy.current = value; }} />}
       </>}
     </div>

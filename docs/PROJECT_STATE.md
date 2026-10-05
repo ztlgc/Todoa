@@ -25,7 +25,7 @@
 - STEP 18：已验收（当前 Windows 开发主机；一致性快照、隔离文件故障/进程崩溃、真实 Tauri 恢复和启动迁移失败回滚）。
 - STEP 19：已验收（开发 Gate；实际窗口状态、OS 自启状态、真实托盘后台启动和单实例；真实登录留 STEP 22）。
 - STEP 20：已验收（开发 Gate；真实六视图、编辑与重启、日期/时区/夏令时、恢复后重建、键盘/焦点及真实 Windows 中文输入法）。
-- STEP 21–22：未开始。
+- STEP 21–22：本次 UI 设计目标暂不实施。
 - STEP 0 时当前目录只有《Windows待办应用AI开发执行手册-最终修订版.md》，且不是 Git 仓库；本文件于 STEP 0 首次创建。STEP 2 Inspect 时已存在 Git 仓库，文件仍均为未跟踪状态；本步未提交。
 - STEP 0 Inspect 时 `docs/ADR.md`、源码、package/Cargo manifests、lockfile、Tauri 配置、Capability、permissions、Migration 均不存在。STEP 1 现已创建基础项目与 `docs/ADR.md`；permissions 和 Migration 仍未建立，因为本步没有自定义 command 或数据库。
 
@@ -617,3 +617,19 @@ STEP 17 状态：已验收（开发 Gate）。STEP 22 发布 Gate 尚未通过�
 - 完整测试最初因旧行内控件路径失败；改为新清单/标签导航和真实详情弹窗路径，保留离线/失败/关系与删除语义断言；最终全套通过。
 - 截图发现恢复长路径溢出，修正 break-all，重新完整原生验证无横向溢出；确认 modal 内显示恢复失败，不将错误藏在 inert 背景中。
 - clippy 发现 Windows 专用测试的 set_readonly(false) 警告；改为恢复原始权限，clippy 与相关真实文件锁用例均复测通过。
+
+## UI/UX 规范补齐（2026-10-05）
+
+- 范围：按本次指令继续完成《Windows 待办应用 UIUX 架构设计规范》中 STEP 20 的界面结构；STEP 21、STEP 22 暂缓，未接入更新入口、未制作发布安装包。
+- Main 导航改为一级 Rail（仅任务/设置）与按工作区切换的 Context Sidebar。任务侧栏包含 Inbox/Today/Upcoming/Lists/Tags；设置侧栏只显示已接通的常规、数据、关于分组。窄窗口通过按钮打开左侧 Overlay，选择视图后关闭。
+- 任务详情在宽窗口（至少 1100 CSS px）为右侧非模态 Inspector；760–1099px 为右侧覆盖层，更窄窗口为全高覆盖层。宽窗口切换任务、关闭详情、切换工作区时对未保存草稿给出确认，并保留焦点返回。关于页读取运行版本，只给 Main 授予 `core:app:allow-version`；Quick Add 权限未变。
+- 前端构建、lint 与 21 个测试文件的 78 项测试通过；`python tests/audit_capabilities.py --step 20` 通过；隔离 `pnpm tauri build --debug --no-bundle --config src-tauri/tauri.step20-test.conf.json` 退出 0。关于页最初因缺版本权限失败，中等窗口详情覆盖层最初受通用 Dialog 居中样式影响；两项均修复并复测。最终 `docs/evidence/step20-uiux-20261005-095301/report.json` 为 PASS，11 项原生检查通过，含真实版本、窄窗口侧栏、宽窗口非模态 Inspector、焦点返回、中等窗口右侧覆盖层、紧凑窗口全高覆盖层及隔离任务创建/清理；已查看三种布局截图。
+- 原生检查只操作 `com.todoa.desktop.test.step20`，没有停止或打开运行中的正式安装版进程；其全局快捷键占用使隔离测试版显示冲突提示，此提示不计为应用自身回归。测试结束后 `S20 UIUX %` 合成任务剩余 0，隔离测试进程已退出，正式安装版进程仍在运行且未操作。STEP 21/22 的更新、签名、安装版和 Windows 11 Gate 仍未执行。
+
+## UI 设计目标收尾（2026-10-05）
+
+- 本轮按用户指令只处理 UI 设计目标，STEP 21/22 暂不实施。此前临时加入的 Updater 依赖及 NSIS 发布配置已撤回；测试包不作为本轮交付。
+- Compact 模式维持左侧纵向任务/设置 Rail。任务 Context Sidebar 在所有任务视图持续列出真实清单、标签及其创建操作；Compact Overlay 支持初始焦点、Escape、Tab 边界和关闭后返回触发按钮。
+- 任务 Inspector 增加真实完成状态操作与永久删除确认；任务行删除确认补充关联标签和提醒的删除后果。相关操作复用现有任务 Mutation，不复制业务状态。
+- `pnpm build`、`pnpm lint` 和 `pnpm test` 均退出 0；21 个测试文件、79 项测试通过。隔离 `pnpm tauri build --debug --no-bundle --config src-tauri/tauri.step20-test.conf.json` 退出 0。
+- 原生 Windows 10 x64 隔离身份 `com.todoa.desktop.test.step20` 的最终证据：`docs/evidence/step20-uiux-20261005-113333/report.json`，19 项 PASS，包含三档布局、纵向 Rail、侧栏 Escape/焦点返回、Inspector 完成/取消完成的真实数据操作和删除确认，以及隔离任务创建/清理。已查看 Wide 和 Compact 截图。未将这些证据扩展为 Windows 11 或安装版验收。

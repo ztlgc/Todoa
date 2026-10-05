@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -9,43 +10,85 @@ import type { TaskList } from "@/domain/list";
 import type { Tag, TaskTag } from "@/domain/tag";
 import { TaskTags } from "@/features/tags/TaskTags";
 import { TaskReminders } from "@/features/reminders/TaskReminders";
-import { useTask, useUpdateTask } from "./queries";
+import { useDeleteTask, useTask, useUpdateTask, useUpdateTaskStatus } from "./queries";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
-export function TaskDetails({ id, lists, listsUnavailable, tags, taskTags, tagsUnavailable, returnTo, onClosed }: {
+export function TaskDetails({ id, lists, listsUnavailable, tags, taskTags, tagsUnavailable, returnTo, onClosed, onDirtyChange }: {
   id: number; lists: TaskList[]; listsUnavailable: boolean; tags?: Tag[]; taskTags: TaskTag[]; tagsUnavailable: boolean;
-  returnTo: HTMLElement | null; onClosed: () => void;
+  returnTo: HTMLElement | null; onClosed: () => void; onDirtyChange?: (dirty: boolean) => void;
 }) {
   const query = useTask(id);
+  const statusMutation = useUpdateTaskStatus(), deleteMutation = useDeleteTask();
   const [open, setOpen] = useState(true);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const media = window.matchMedia("(min-width: 1100px)");
+    const update = () => setWide(media.matches);
+    update(); media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const [confirming, setConfirming] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [actionError, setActionError] = useState<string>();
   const dirty = useRef(false), busy = useRef(false), composing = useRef(false);
   const initialFocus = useRef<HTMLInputElement>(null);
-  const close = () => { if (busy.current || composing.current) return; if (dirty.current) setConfirming(true); else setOpen(false); };
-  return <Dialog open={open} onOpenChange={next => { if (!next) close(); }} onOpenChangeComplete={next => { if (!next) onClosed(); }}>
-    <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl" initialFocus={initialFocus}
-      finalFocus={() => returnTo?.isConnected ? returnTo : document.getElementById("inbox-heading")}
-      showCloseButton={false} onKeyDownCapture={event => { if ((event.key === "Escape" || event.key === "Enter") && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) { event.preventDefault(); event.stopPropagation(); } }}>
-      <div className="flex items-center justify-between gap-3"><DialogTitle>任务详情</DialogTitle><DialogClose render={<Button variant="ghost" aria-label="关闭任务详情" />}>关闭</DialogClose></div>
-      <DialogDescription>编辑内容以本地时间显示，保存后生效。备注为纯文本。</DialogDescription>
+  const finishClose = () => { onDirtyChange?.(false); onClosed(); requestAnimationFrame(() => (returnTo?.isConnected ? returnTo : document.getElementById("inbox-heading"))?.focus()); };
+  const dismiss = () => { if (wide) finishClose(); else setOpen(false); };
+  const close = () => { if (busy.current || composing.current) return; if (dirty.current) setConfirming(true); else dismiss(); };
+  const keyGuard = (event: React.KeyboardEvent) => {
+    if ((event.key === "Escape" || event.key === "Enter") && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) { event.preventDefault(); event.stopPropagation(); return; }
+    if (wide && event.key === "Escape") { event.preventDefault(); close(); }
+  };
+  async function changeStatus(checked: boolean) {
+    if (busy.current || statusMutation.isPending || deleteMutation.isPending) return;
+    setActionError(undefined);
+    try { await statusMutation.mutateAsync({ id, status: checked ? "completed" : "todo" }); }
+    catch { setActionError("任务状态更改失败，请重试。"); }
+  }
+  async function deleteTask() {
+    if (busy.current || deleteMutation.isPending) return;
+    busy.current = true;
+    setActionError(undefined);
+    try {
+      await deleteMutation.mutateAsync(id);
+      dirty.current = false;
+      setConfirmingDelete(false);
+      dismiss();
+    } catch { setActionError("删除失败，任务仍保留，请重试。"); setConfirmingDelete(false); }
+    finally { busy.current = false; }
+  }
+  const content = <>
+      <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2">{query.data && <Checkbox checked={query.data.status === "completed"} disabled={statusMutation.isPending || deleteMutation.isPending} onCheckedChange={checked => void changeStatus(checked)} aria-label={query.data.status === "completed" ? "取消完成任务" : "完成任务"} />}{wide ? <h2 className="font-medium">任务详情</h2> : <DialogTitle>任务详情</DialogTitle>}</div>{wide ? <Button variant="ghost" aria-label="关闭任务详情" onClick={close}>关闭</Button> : <DialogClose render={<Button variant="ghost" aria-label="关闭任务详情" />}>关闭</DialogClose>}</div>
+      {wide ? <p className="text-muted-foreground">编辑内容以本地时间显示，保存后生效。备注为纯文本。</p> : <DialogDescription>编辑内容以本地时间显示，保存后生效。备注为纯文本。</DialogDescription>}
       {query.isPending && <p role="status">正在读取任务详情…</p>}
       {query.isError && <div role="alert">详情读取失败。<Button onClick={() => void query.refetch()}>重试详情</Button></div>}
       {query.isSuccess && !query.data && <p role="alert">任务已被删除。</p>}
       {query.data && <TaskEditor task={query.data} lists={lists} listsUnavailable={listsUnavailable} tags={tags} taskTags={taskTags} tagsUnavailable={tagsUnavailable}
-        initialFocus={initialFocus} dirty={dirty} busy={busy} composing={composing} onSaved={() => { dirty.current = false; setOpen(false); }} />}
+        initialFocus={initialFocus} dirty={dirty} busy={busy} composing={composing} onDirtyChange={onDirtyChange} onSaved={() => { dirty.current = false; onDirtyChange?.(false); dismiss(); }} />}
+      {query.data && <div className="border-t pt-4"><Button variant="destructive" disabled={deleteMutation.isPending || statusMutation.isPending} onClick={() => setConfirmingDelete(true)}>永久删除任务</Button></div>}
+      {actionError && <p role="alert" className="text-destructive">{actionError}</p>}
+      <Dialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+        <DialogContent showCloseButton={false}><DialogTitle>永久删除任务？</DialogTitle><DialogDescription>任务及关联的标签关系、提醒将被删除，此操作无法撤销。未保存的任务输入也会丢失。</DialogDescription>
+          <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={deleteMutation.isPending} onClick={() => setConfirmingDelete(false)}>取消</Button><Button variant="destructive" disabled={deleteMutation.isPending} onClick={() => void deleteTask()}>{deleteMutation.isPending ? "正在删除…" : "永久删除"}</Button></div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent showCloseButton={false}><DialogTitle>放弃未保存的修改？</DialogTitle><DialogDescription>任务与提醒输入尚未保存。可以继续编辑，或放弃输入并关闭。</DialogDescription>
           <Button onClick={() => setConfirming(false)}>继续编辑</Button>
-          <Button variant="destructive" onClick={() => { dirty.current = false; setConfirming(false); setOpen(false); }}>放弃修改并关闭</Button>
+          <Button variant="destructive" onClick={() => { dirty.current = false; onDirtyChange?.(false); setConfirming(false); dismiss(); }}>放弃修改并关闭</Button>
         </DialogContent>
       </Dialog>
-    </DialogContent>
-  </Dialog>;
+    </>;
+  return wide ? <aside aria-label="任务详情" className="fixed inset-y-0 right-0 z-20 w-[min(440px,36vw)] min-w-80 overflow-y-auto border-l bg-popover p-4 text-sm shadow-xl" onKeyDownCapture={keyGuard}>{content}</aside>
+    : <Dialog open={open} onOpenChange={next => { if (!next) close(); }} onOpenChangeComplete={next => { if (!next) finishClose(); }}>
+      <DialogContent layout="inspector" initialFocus={initialFocus} finalFocus={() => returnTo?.isConnected ? returnTo : document.getElementById("inbox-heading")} showCloseButton={false} onKeyDownCapture={keyGuard}>{content}</DialogContent>
+    </Dialog>;
 }
 
-function TaskEditor({ task, lists, listsUnavailable, tags, taskTags, tagsUnavailable, initialFocus, dirty, busy, composing, onSaved }: {
+function TaskEditor({ task, lists, listsUnavailable, tags, taskTags, tagsUnavailable, initialFocus, dirty, busy, composing, onSaved, onDirtyChange }: {
   task: Task; lists: TaskList[]; listsUnavailable: boolean; tags?: Tag[]; taskTags: TaskTag[]; tagsUnavailable: boolean;
-  initialFocus: React.RefObject<HTMLInputElement | null>; dirty: React.RefObject<boolean>; busy: React.RefObject<boolean>; composing: React.RefObject<boolean>; onSaved: () => void;
+  initialFocus: React.RefObject<HTMLInputElement | null>; dirty: React.RefObject<boolean>; busy: React.RefObject<boolean>; composing: React.RefObject<boolean>; onSaved: () => void; onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [baseline, setBaseline] = useState(task);
   const [baselineDue, setBaselineDue] = useState(() => toLocalInput(task.dueAt));
@@ -63,6 +106,7 @@ function TaskEditor({ task, lists, listsUnavailable, tags, taskTags, tagsUnavail
   useEffect(() => { initialFocus.current?.focus(); }, [initialFocus]);
   function changed(values: { title?: string; notes?: string; due?: string; listId?: number | null } = {}, reminder = reminderDirty) {
     dirty.current = reminder || (values.title ?? title) !== baseline.title || (values.notes ?? notes) !== baseline.notes || (values.due ?? due) !== baselineDue || (values.listId === undefined ? listId : values.listId) !== baseline.listId;
+    onDirtyChange?.(dirty.current);
   }
   async function save(event: FormEvent) {
     event.preventDefault(); if (busy.current || composing.current) return;
@@ -79,10 +123,10 @@ function TaskEditor({ task, lists, listsUnavailable, tags, taskTags, tagsUnavail
   const ime = { onCompositionStart: () => { composing.current = true; }, onCompositionEnd: () => { composing.current = false; } };
   return <div className="space-y-5">
     {confirmation}
-    {zone !== draftZone && <div role="alert" className="space-y-2 rounded border p-3"><p>系统时区已改变，当前截止时间输入仍来自 {draftZone}。请核对后采用 {zone}；任务标题和备注保留。</p><Button variant="outline" onClick={() => { const next = toLocalInput(baseline.dueAt); if (due === baselineDue) setDue(next); setBaselineDue(next); setDraftZone(zone); dirty.current = reminderDirty || title !== baseline.title || notes !== baseline.notes || due !== baselineDue || listId !== baseline.listId; }}>采用当前时区</Button></div>}
-    {task.updatedAt !== baseline.updatedAt && <p role="status" className="rounded-md bg-muted p-3">任务已更新，草稿保留。保存将采用当前输入。<Button variant="outline" onClick={async () => {
+    {zone !== draftZone && <div role="alert" className="space-y-2 rounded border p-3"><p>系统时区已改变，当前截止时间输入仍来自 {draftZone}。请核对后采用 {zone}；任务标题和备注保留。</p><Button variant="outline" onClick={() => { const next = toLocalInput(baseline.dueAt); if (due === baselineDue) setDue(next); setBaselineDue(next); setDraftZone(zone); dirty.current = reminderDirty || title !== baseline.title || notes !== baseline.notes || due !== baselineDue || listId !== baseline.listId; onDirtyChange?.(dirty.current); }}>采用当前时区</Button></div>}
+    {(task.title !== baseline.title || task.notes !== baseline.notes || task.dueAt !== baseline.dueAt || task.listId !== baseline.listId) && <p role="status" className="rounded-md bg-muted p-3">任务已更新，草稿保留。保存将采用当前输入。<Button variant="outline" onClick={async () => {
       if (dirty.current && !(await confirm("放弃当前任务输入并重新读取已保存内容？"))) return;
-      setBaseline(task); setTitle(task.title); setNotes(task.notes); setDue(toLocalInput(task.dueAt)); setBaselineDue(toLocalInput(task.dueAt)); setDraftZone(zone); setListId(task.listId); dirty.current = reminderDirty;
+      setBaseline(task); setTitle(task.title); setNotes(task.notes); setDue(toLocalInput(task.dueAt)); setBaselineDue(toLocalInput(task.dueAt)); setDraftZone(zone); setListId(task.listId); dirty.current = reminderDirty; onDirtyChange?.(dirty.current);
     }}>重新载入内容</Button></p>}
     <form aria-label="编辑任务" onSubmit={event => void save(event)} className="space-y-4">
       <div className="space-y-2"><label htmlFor="edit-task-title">任务标题</label><Input ref={initialFocus} id="edit-task-title" value={title} disabled={update.isPending} {...ime} onChange={event => { setTitle(event.target.value); changed({ title: event.target.value }); }} /></div>

@@ -109,7 +109,7 @@ it("keeps completed tasks visible, supports undo and confirms permanent deletion
   await waitFor(() => expect(screen.queryByText("已完成")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "删除：Buy milk" }));
   expect(taskRepository.delete).not.toHaveBeenCalled();
-  expect(screen.getByText("永久删除“Buy milk”？此操作无法撤销。")).toBeTruthy();
+  expect(screen.getByText("永久删除“Buy milk”？任务及关联的标签关系、提醒将被删除，此操作无法撤销。")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "取消" }));
   expect(taskRepository.delete).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "删除：Buy milk" }));
