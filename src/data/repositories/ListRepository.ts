@@ -1,4 +1,6 @@
 import { initDatabase } from "@/data/db/initDatabase";
+import { isBrowserDebug } from "@/app/browserDebug";
+import { browserListRepository } from "@/data/browserRepositories";
 import type { SqlDatabase } from "@/data/db/SqlDatabase";
 import { ListValidationError, parseListId, parseListName, type TaskList } from "@/domain/list";
 import { parseTaskTime } from "@/domain/task";
@@ -79,4 +81,4 @@ export class ListRepository {
   }
 }
 
-export const listRepository = new ListRepository();
+export const listRepository = isBrowserDebug() ? browserListRepository : new ListRepository();

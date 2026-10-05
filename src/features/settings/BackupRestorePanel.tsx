@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { isBrowserDebug } from "@/app/browserDebug";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 export function RestoreNotice() {
   const [notice, setNotice] = useState<string>();
-  useEffect(() => { let active = true; void invoke<string | null>("restore_status").then(value => { if (active && value) setNotice(value); }).catch(() => { if (active) setNotice("恢复日志无法读取。请保留数据库及恢复目录，不要手动删除文件。"); }); return () => { active = false; }; }, []);
+  useEffect(() => { if (isBrowserDebug()) return; let active = true; void invoke<string | null>("restore_status").then(value => { if (active && value) setNotice(value); }).catch(() => { if (active) setNotice("恢复日志无法读取。请保留数据库及恢复目录，不要手动删除文件。"); }); return () => { active = false; }; }, []);
   return notice ? <p role="status" className="mb-4 break-all rounded-md border p-3 text-sm">{notice}</p> : null;
 }
 
@@ -30,7 +31,8 @@ export function BackupRestorePanel() {
   return <section aria-labelledby="backup-heading" className="my-6 rounded-lg border p-4">
     <h2 id="backup-heading" className="font-semibold">备份与恢复</h2>
     <p className="my-2 text-sm text-muted-foreground">备份包含全部任务、清单、标签、提醒和数据库设置，未经加密。窗口状态和系统开机启动状态不在备份中。</p>
-    <div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={() => void run(false)}>备份数据</Button><Button ref={restoreButton} variant="outline" disabled={busy} onClick={() => { setMessage(undefined); setConfirming(true); }}>恢复备份</Button></div>
+    <div className="flex flex-wrap gap-2"><Button disabled={busy || isBrowserDebug()} onClick={() => void run(false)}>备份数据</Button><Button ref={restoreButton} variant="outline" disabled={busy || isBrowserDebug()} onClick={() => { setMessage(undefined); setConfirming(true); }}>恢复备份</Button></div>
+    {isBrowserDebug() && <p className="mt-2 text-sm text-muted-foreground">浏览器调试使用临时数据，备份与恢复需在桌面应用中操作。</p>}
     <Dialog open={confirming} onOpenChange={value => { if (!busy) setConfirming(value); }}>
       <DialogContent role="alertdialog" showCloseButton={false} initialFocus={cancelButton} finalFocus={restoreButton} className="max-h-[90dvh] overflow-y-auto">
       <DialogTitle id="restore-title">替换全部数据库内容？</DialogTitle>

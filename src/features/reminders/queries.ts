@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isBrowserDebug } from "@/app/browserDebug";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import { reminderRepository } from "@/data/repositories/ReminderRepository";
 export const reminderKeys={all:["reminders"] as const,task:(id:number)=>["reminders",id] as const};
@@ -8,4 +9,4 @@ export function useWriteReminder(taskId:number) {
   return useMutation({mutationFn:async (input:{action:"create"|"edit"|"delete";id?:number;time?:string})=>{ await (input.action==="create"?reminderRepository.create(taskId,input.time!):input.action==="edit"?reminderRepository.edit(input.id!,input.time!):reminderRepository.delete(input.id!)); },networkMode:"always",retry:0,onSuccess:()=>client.invalidateQueries({queryKey:reminderKeys.task(taskId)})});
 }
 
-export function useSchedulerStatus() { return useQuery({queryKey:[...reminderKeys.all,"scheduler-status"],queryFn:()=>invoke<string>("reminder_scheduler_status"),networkMode:"always",retry:0}); }
+export function useSchedulerStatus() { return useQuery({queryKey:[...reminderKeys.all,"scheduler-status"],queryFn:()=>isBrowserDebug()?Promise.resolve("browser-preview"):invoke<string>("reminder_scheduler_status"),networkMode:"always",retry:0}); }

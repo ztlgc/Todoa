@@ -1,4 +1,6 @@
 import { initDatabase } from "@/data/db/initDatabase";
+import { isBrowserDebug } from "@/app/browserDebug";
+import { browserTagRepository } from "@/data/browserRepositories";
 import type { SqlDatabase } from "@/data/db/SqlDatabase";
 import { parseTagId, parseTagName, TagConflictError, TagValidationError, type Tag, type TaskTag } from "@/domain/tag";
 import { parseTaskId, parseTaskTime } from "@/domain/task";
@@ -82,4 +84,4 @@ export class TagRepository {
   }
 }
 
-export const tagRepository = new TagRepository();
+export const tagRepository = isBrowserDebug() ? browserTagRepository : new TagRepository();

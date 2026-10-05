@@ -1,17 +1,31 @@
 // @vitest-environment jsdom
 import {describe,it,expect,vi,afterEach} from "vitest";
-import {render,screen,fireEvent,waitFor,cleanup} from "@testing-library/react";
+import {act,render,screen,fireEvent,waitFor,cleanup} from "@testing-library/react";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {TaskReminders} from "./TaskReminders";
 import {invoke} from "@tauri-apps/api/core";
 import type {Task} from "@/domain/task";
+import {toLocalInput} from "@/domain/taskDates";
 vi.mock("@tauri-apps/api/core",()=>({invoke:vi.fn(async()=>"ready")}));
 const api=vi.hoisted(()=>({list:vi.fn(),create:vi.fn(),edit:vi.fn(),delete:vi.fn()}));
 vi.mock("@/data/repositories/ReminderRepository",async(importOriginal)=>({...await importOriginal<typeof import("@/data/repositories/ReminderRepository")>(),reminderRepository:api}));
 afterEach(()=>{cleanup();vi.clearAllMocks();});
 const task={id:1,title:"Test",status:"todo"} as Task;
-function mount(value=task){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><TaskReminders task={value} disabled={false}/></QueryClientProvider>);}
+function mount(value=task,onRegisterDraftSave?:(save:(()=>Promise<boolean>)|null)=>void){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><TaskReminders task={value} disabled={false} onRegisterDraftSave={onRegisterDraftSave}/></QueryClientProvider>);}
 describe("TaskReminders",()=>{
+  it("saves a valid reminder draft when detail auto-save requests it",async()=>{
+    api.list.mockResolvedValue([]);api.create.mockResolvedValue(undefined);
+    let save:(()=>Promise<boolean>)|null=null;
+    mount(task,callback=>{save=callback;});
+    fireEvent.click(screen.getByRole("button",{name:"提醒"}));
+    const input=await screen.findByLabelText("新增提醒");
+    const future=toLocalInput(new Date(Date.now()+86_400_000).toISOString()).slice(0,16);
+    fireEvent.change(input,{target:{value:future}});
+    await waitFor(()=>expect(save).not.toBeNull());
+    await act(async()=>{expect(await save!()).toBe(true);});
+    expect(api.create).toHaveBeenCalledOnce();
+    expect((input as HTMLInputElement).value).toBe("");
+  });
   it("shows API accepted notice, validates dates and preserves failed edit draft",async()=>{
     const future=new Date(Date.now()+86_400_000).toISOString();api.list.mockResolvedValue([{id:3,taskId:1,remindAt:future,triggeredAt:null}]);api.edit.mockRejectedValue("WRITE_FAILED");
     mount();fireEvent.click(screen.getByRole("button",{name:"提醒"}));expect(await screen.findByText(/API 接受不代表/)).toBeTruthy();

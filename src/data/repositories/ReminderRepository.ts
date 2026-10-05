@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isBrowserDebug } from "@/app/browserDebug";
+import { browserReminderRepository } from "@/data/browserRepositories";
 import { initDatabase } from "@/data/db/initDatabase";
 import { parseTaskId, parseTaskTime } from "@/domain/task";
 import type { SqlDatabase } from "@/data/db/SqlDatabase";
@@ -18,4 +20,4 @@ export class ReminderRepository {
   edit(id:number,remindAt:string) { return this.command<void>("edit_reminder",{id:parseTaskId(id),remindAt:futureTime(remindAt)}); }
   delete(id:number) { return this.command<void>("delete_reminder",{id:parseTaskId(id)}); }
 }
-export const reminderRepository=new ReminderRepository();
+export const reminderRepository=isBrowserDebug()?browserReminderRepository:new ReminderRepository();

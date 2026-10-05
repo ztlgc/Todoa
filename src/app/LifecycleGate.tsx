@@ -1,10 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { isBrowserDebug } from "./browserDebug";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export function LifecycleGate({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState("loading");
+  const [status, setStatus] = useState(() => isBrowserDebug() ? "browser" : "loading");
   useEffect(() => {
+    if (isBrowserDebug()) return;
     let disposed = false;
     let quitting = false;
     let timer: ReturnType<typeof setTimeout> | undefined;

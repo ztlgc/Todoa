@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { parseTaskTitle, TaskValidationError, type Task, type TaskFilters } from "@/domain/task";
+import { parseNaturalTaskInput } from "@/domain/naturalTaskInput";
 import type { TaskList } from "@/domain/list";
 import type { Tag, TaskTag } from "@/domain/tag";
 import { TaskDetails } from "./TaskDetails";
+import { Trash2 } from "lucide-react";
 import { useCreateTask, useDeleteTask, useTasks, useUpdateTaskStatus } from "./queries";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 
@@ -38,7 +40,7 @@ function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task:
         {task.notes && <p className="line-clamp-2 break-all whitespace-pre-wrap text-sm text-muted-foreground">{task.notes}</p>}
         {task.dueAt && <p className="text-xs text-muted-foreground"><time dateTime={task.dueAt}>{new Date(task.dueAt).toLocaleString()}</time>{task.status === "todo" && task.dueAt < now.toISOString() && <span className="ml-2 rounded bg-destructive/10 px-2 py-0.5 text-destructive">逾期</span>}</p>}
       </div>
-      <Button ref={deleteButton} variant="ghost" size="sm" disabled={pending || confirming} onClick={() => { setConfirming(true); requestAnimationFrame(() => cancelButton.current?.focus()); }} aria-label={`删除：${task.title}`}>删除</Button>
+      <Button ref={deleteButton} variant="ghost" size="icon-sm" disabled={pending || confirming} onClick={() => { setConfirming(true); requestAnimationFrame(() => cancelButton.current?.focus()); }} aria-label={`删除：${task.title}`} title="删除任务"><Trash2 aria-hidden="true" className="size-4" /></Button>
     </div>
     {confirming && <div role="group" aria-label={`确认删除：${task.title}`} className="space-y-3 rounded-lg bg-muted p-3" onKeyDown={event => { if (event.key === "Escape" && !pending) { event.stopPropagation(); setConfirming(false); deleteButton.current?.focus(); } }}>
       <p className="break-all text-sm">永久删除“{task.title}”？任务及关联的标签关系、提醒将被删除，此操作无法撤销。</p>
@@ -55,18 +57,21 @@ export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable
 }) {
   const tasks = useTasks(dateFilters ?? (tagId === undefined ? { listId } : { tagId })), create = useCreateTask();
   const [draft, setDraft] = useState(initialDraft), [error, setError] = useState<string>();
+  const [ignoreRecognition, setIgnoreRecognition] = useState(false);
   const [detail, setDetail] = useState<{ id: number; returnTo: HTMLElement | null }>();
   const detailDirty = useRef(false);
   const { confirm: confirmSwitch, confirmation: switchConfirmation } = useConfirmDialog();
   const composing = useRef(false), submitting = useRef(false);
   const unavailable = tasks.isPending || tasks.isError;
   const canCreate = tagId === undefined && !dateFilters;
+  const analysis = draft.trim() ? parseNaturalTaskInput(draft, now) : null;
+  const parsed = ignoreRecognition ? null : analysis;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (composing.current || submitting.current || unavailable || !canCreate) return;
     let title: string;
-    try { title = parseTaskTitle(draft); } catch (cause) { setError(cause instanceof TaskValidationError ? cause.message : "任务标题无效。"); return; }
+    try { title = parseTaskTitle(parsed?.title ?? draft); } catch (cause) { setError(cause instanceof TaskValidationError ? cause.message : "任务标题无效。"); return; }
     submitting.current = true; onBusyChange?.(true); setError(undefined);
-    try { await create.mutateAsync(listId == null ? { title } : { title, listId }); setDraft(""); onDraftChange?.(false, ""); }
+    try { await create.mutateAsync({ title, ...(listId == null ? {} : { listId }), ...(parsed?.dueAt ? { dueAt: parsed.dueAt } : {}) }); setDraft(""); setIgnoreRecognition(false); onDraftChange?.(false, ""); }
     catch { setError("新增失败，输入已保留。请稍后重试。"); }
     finally { submitting.current = false; onBusyChange?.(false); }
   }
@@ -74,8 +79,15 @@ export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable
     {switchConfirmation}
     <header className="space-y-2"><h1 id="inbox-heading" tabIndex={-1} className="break-all text-3xl font-semibold tracking-tight outline-none">{name}</h1><p className="text-sm text-muted-foreground">{dateFilters ? "只显示未完成且有截止时间的任务 · 本地日期" : "记录待办，按自己的节奏完成。点击标题编辑详情。"}</p></header>
     {canCreate ? <form aria-label="新增任务" onSubmit={event => void submit(event)} className="space-y-2 rounded-xl border border-border bg-card p-4">
-      <label htmlFor="task-title" className="text-sm font-medium">新任务</label>
-      <div className="flex flex-wrap gap-2"><Input id="task-title" placeholder="接下来要做什么？" className="min-w-0 flex-1" value={draft} onChange={event => { setDraft(event.target.value); onDraftChange?.(!!event.target.value, event.target.value); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if (event.key === "Enter" && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) event.preventDefault(); }} disabled={create.isPending || unavailable} aria-invalid={!!error} aria-describedby={error ? "create-error" : undefined} /><Button type="submit" disabled={create.isPending || unavailable}>{create.isPending ? "正在添加…" : "添加任务"}</Button></div>
+      <label htmlFor="task-title" className="sr-only">新任务</label>
+      <div className="flex flex-wrap gap-2"><Input id="task-title" placeholder="例如：明天下午3点开会" className="min-w-0 flex-1" value={draft} onChange={event => { setDraft(event.target.value); setIgnoreRecognition(false); onDraftChange?.(!!event.target.value, event.target.value); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if (event.key === "Enter" && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) event.preventDefault(); }} disabled={create.isPending || unavailable} aria-invalid={!!error} aria-describedby={error ? "create-error" : undefined} /><Button type="submit" disabled={create.isPending || unavailable}>{create.isPending ? "正在添加…" : analysis?.repeatText ? "添加单次任务" : "添加任务"}</Button></div>
+      {!draft.trim() && <p className="text-xs text-muted-foreground">可输入“明天下午3点开会”“下周二 18:00 健身”或“10月8日 买票”。</p>}
+      {draft.trim() && <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-live="polite">
+        <span>日期：{parsed?.label ?? (ignoreRecognition ? "已保留原文" : "未识别")}</span>
+        <span>重复：{analysis?.repeatText ? `检测到“${analysis.repeatText}”，当前只创建单次任务` : "未检测到"}</span>
+        {parsed?.matchedText && <Button type="button" size="sm" variant="ghost" onClick={() => setIgnoreRecognition(true)}>保留原文</Button>}
+        {ignoreRecognition && <Button type="button" size="sm" variant="ghost" onClick={() => setIgnoreRecognition(false)}>重新识别日期</Button>}
+      </div>}
       {error && <p id="create-error" role="alert" className="text-sm text-destructive">{error}</p>}
     </form> : <p className="text-sm text-muted-foreground">请在收件箱或清单中新建任务。</p>}
     {tasks.isPending && <p role="status" className="py-8 text-center text-sm text-muted-foreground">正在读取{name}…</p>}

@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isBrowserDebug } from "@/app/browserDebug";
+import { browserTaskRepository } from "@/data/browserRepositories";
 import { initDatabase } from "@/data/db/initDatabase";
 import type { SqlDatabase, SqlValue } from "@/data/db/SqlDatabase";
 import { parseListId } from "@/domain/list";
@@ -194,4 +196,4 @@ export class TaskRepository {
   }
 }
 
-export const taskRepository = new TaskRepository();
+export const taskRepository = isBrowserDebug() ? browserTaskRepository : new TaskRepository();

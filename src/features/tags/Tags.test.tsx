@@ -30,6 +30,7 @@ function setup() {
 function change(label: string, value: string) { fireEvent.change(screen.getByLabelText(label), { target: { value } }); }
 async function ready() { await screen.findByText("Inbox tagged"); }
 function openTags() { fireEvent.click(screen.getByRole("button", { name: "打开标签" })); }
+function openCreateTag() { fireEvent.click(screen.getByRole("button", { name: "新建标签" })); }
 async function edit(title = "Inbox tagged") { fireEvent.click(screen.getByRole("button", { name: `编辑任务：${title}` })); await screen.findByLabelText(`分配标签：${title}`); }
 async function closeDetail() { fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); }
 beforeEach(() => {
@@ -50,7 +51,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear()); onlineManager.setOnline(true); });
 
 it("validates names, ignores IME Enter, creates trimmed Chinese names and preserves conflict input", async () => {
-  setup(); await ready(); openTags();
+  setup(); await ready(); openTags(); openCreateTag();
   change("新标签名称", "  "); fireEvent.submit(screen.getByRole("form", { name: "创建标签" }));
   await screen.findByText("标签名称长度必须为 1 至 100 个字符"); expect(tagRepository.create).not.toHaveBeenCalled();
   change("新标签名称", "  家庭  ");
@@ -60,10 +61,11 @@ it("validates names, ignores IME Enter, creates trimmed Chinese names and preser
   fireEvent.compositionEnd(input); fireEvent.submit(screen.getByRole("form", { name: "创建标签" }));
   await screen.findByRole("button", { name: "打开标签：家庭" });
   expect(tagRepository.create).toHaveBeenCalledWith("家庭");
-  await waitFor(() => expect((input as HTMLInputElement).value).toBe(""));
+  await waitFor(() => expect(screen.queryByRole("form", { name: "创建标签" })).toBeNull());
+  openCreateTag();
   change("新标签名称", "work"); fireEvent.submit(screen.getByRole("form", { name: "创建标签" }));
   await screen.findByText("标签名称已存在，请使用其他名称。");
-  expect((input as HTMLInputElement).value).toBe("work");
+  expect((screen.getByLabelText("新标签名称") as HTMLInputElement).value).toBe("work");
 });
 
 it("assigns a duplicate once, removes only the relation and invalidates all relevant caches offline", async () => {
@@ -79,7 +81,7 @@ it("assigns a duplicate once, removes only the relation and invalidates all rele
   expect(client.getQueryState(inactive)?.isInvalidated).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "移除标签：Inbox tagged：Work" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "移除标签：Inbox tagged：Work" })).toBeNull());
-  expect(screen.getByText("Inbox tagged")).toBeTruthy(); expect(tasks).toHaveLength(3);
+  expect(screen.getByRole("heading", { name: "Inbox tagged" })).toBeTruthy(); expect(tasks).toHaveLength(3);
   expect(client.getQueryData(tagKeys.taskTags())).toEqual([]);
 });
 
@@ -105,7 +107,7 @@ it("queries tag tasks across lists, updates the view on removal and preserves ta
 });
 
 it("prevents duplicate pending submits and keeps data/drafts on create, assign, remove and delete errors", async () => {
-  const client = setup(); await ready(); openTags();
+  const client = setup(); await ready(); openTags(); openCreateTag();
   client.setQueryData(taskKeys.counts(), 3);
   let reject!: (error: Error) => void;
   vi.mocked(tagRepository.create).mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
@@ -130,7 +132,7 @@ it("prevents duplicate pending submits and keeps data/drafts on create, assign, 
 it("reports metadata/relationship read errors and disables assignment", async () => {
   vi.mocked(tagRepository.list).mockRejectedValue(new Error("read failed"));
   vi.mocked(tagRepository.listTaskTags).mockRejectedValue(new Error("read failed"));
-  setup(); await ready(); openTags();
+  setup(); await ready(); openTags(); openCreateTag();
   await screen.findByText("标签读取失败。");
   fireEvent.click(screen.getByRole("button", { name: "打开收件箱" })); await screen.findByText("任务标签读取失败。");
   expect(screen.queryByLabelText("分配标签：Inbox tagged")).toBeNull();

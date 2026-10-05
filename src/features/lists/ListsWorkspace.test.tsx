@@ -27,6 +27,8 @@ function setup() {
   return client;
 }
 function change(label: string, value: string) { fireEvent.change(screen.getByLabelText(label), { target: { value } }); }
+function openCreateList() { fireEvent.click(screen.getByRole("button", { name: "新建清单" })); }
+function openListManagement(name: string) { fireEvent.click(screen.getByRole("button", { name: `管理清单：${name}` })); }
 beforeEach(() => {
   vi.resetAllMocks(); onlineManager.setOnline(true);
   lists = [list]; tasks = [task];
@@ -45,10 +47,16 @@ afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear(
 it("separates task navigation from settings groups", async () => {
   setup();
   const rail = screen.getByRole("navigation", { name: "一级导航" });
-  expect(rail.querySelectorAll("button")).toHaveLength(2);
+  expect(rail.querySelectorAll("button")).toHaveLength(3);
   expect(screen.getByRole("navigation", { name: "任务视图" }).querySelectorAll("button")).toHaveLength(5);
   expect(await screen.findByRole("button", { name: "打开清单：工作" })).toBeTruthy();
-  expect(screen.getByRole("form", { name: "创建标签" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "新建标签" })).toBeTruthy();
+  expect(screen.queryByRole("form", { name: "创建标签" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /^日历$/ }));
+  await screen.findByRole("heading", { name: "日历" });
+  expect(await screen.findByRole("button", { name: "上个月" })).toBeTruthy();
+  expect(screen.queryByRole("navigation", { name: "任务视图" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /^任务$/ }));
   fireEvent.click(screen.getByRole("button", { name: "打开今天" }));
   await screen.findByRole("heading", { name: "今天" });
   expect(screen.getByRole("button", { name: "打开清单：工作" })).toBeTruthy();
@@ -76,7 +84,7 @@ it("closes compact navigation after choosing a task view", async () => {
   expect(document.querySelector('button[aria-label="关闭视图导航背景"]')).toBeNull();
 });
 
-it("confirms before replacing a dirty wide inspector", async () => {
+it("saves a dirty wide inspector before opening another task", async () => {
   Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }) });
   tasks = [task, { ...task, id: 2, title: "Second task" }];
   setup();
@@ -85,11 +93,7 @@ it("confirms before replacing a dirty wide inspector", async () => {
   const title = await screen.findByLabelText("任务标题");
   fireEvent.change(title, { target: { value: "Unsaved title" } });
   fireEvent.click(screen.getByRole("button", { name: "编辑任务：Second task" }));
-  await screen.findByText("当前任务详情尚未保存。放弃修改并打开另一项任务？");
-  fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
-  expect((title as HTMLInputElement).value).toBe("Unsaved title");
-  fireEvent.click(screen.getByRole("button", { name: "编辑任务：Second task" }));
-  fireEvent.click(await screen.findByRole("button", { name: "放弃输入并继续" }));
+  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ title: "Unsaved title" })));
   await waitFor(() => expect((screen.getByLabelText("任务标题") as HTMLInputElement).value).toBe("Second task"));
 });
 
@@ -98,14 +102,15 @@ it("creates a selected list and new task in it while offline; renames and invali
   const client = setup();
   await screen.findByRole("button", { name: "打开清单：工作" });
   client.setQueryData(taskKeys.detail(1), task); client.setQueryData(taskKeys.counts(), 1);
+  openCreateList();
   change("新清单名称", "  个人  ");
   fireEvent.submit(screen.getByRole("form", { name: "创建清单" }));
   await screen.findByRole("heading", { name: "个人" });
-  expect((screen.getByLabelText("新清单名称") as HTMLInputElement).value).toBe("");
+  expect(screen.queryByRole("form", { name: "创建清单" })).toBeNull();
   change("新任务", "Personal task"); fireEvent.submit(screen.getByRole("form", { name: "新增任务" }));
   await screen.findByText("Personal task");
   expect(taskRepository.create).toHaveBeenCalledWith({ title: "Personal task", listId: 2 });
-  fireEvent.click(screen.getByRole("button", { name: "重命名清单" }));
+  openListManagement("个人"); fireEvent.click(screen.getByRole("button", { name: "重命名清单" }));
   change("清单名称", "  私人项目  "); fireEvent.submit(screen.getByRole("form", { name: "重命名清单" }));
   await screen.findByRole("heading", { name: "私人项目" });
   expect(listRepository.rename).toHaveBeenCalledWith(2, "私人项目");
@@ -130,6 +135,7 @@ it("moves tasks, confirms/cancels deletion, refetches Inbox and resets a deleted
   fireEvent.click(await screen.findByRole("button", { name: "打开清单：工作" }));
   await screen.findByText("Work task");
   const inactive = taskKeys.list({ view: "list", listId: 2 }); client.setQueryData(inactive, []);
+  openListManagement("工作");
   fireEvent.click(screen.getByRole("button", { name: "删除清单" }));
   expect(screen.getByText("删除清单“工作”？任务会回到收件箱，不会被删除。")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "取消删除清单" }));
@@ -148,6 +154,7 @@ it("preserves drafts, membership and selection on failed create/rename/move/dele
   client.setQueryData(taskKeys.counts(), 1);
   let reject!: (error: Error) => void;
   vi.mocked(listRepository.create).mockReturnValue(new Promise((_resolve, failure) => { reject = failure; }));
+  openCreateList();
   change("新清单名称", "保留草稿");
   const form = screen.getByRole("form", { name: "创建清单" }); fireEvent.submit(form); fireEvent.submit(form);
   await waitFor(() => expect(listRepository.create).toHaveBeenCalledTimes(1));
@@ -157,6 +164,7 @@ it("preserves drafts, membership and selection on failed create/rename/move/dele
   expect(client.getQueryState(taskKeys.counts())?.isInvalidated).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "打开清单：工作" })); await screen.findByText("Work task");
   vi.mocked(listRepository.rename).mockRejectedValue(new Error("locked"));
+  openListManagement("工作");
   fireEvent.click(screen.getByRole("button", { name: "重命名清单" })); change("清单名称", "新名称");
   fireEvent.submit(screen.getByRole("form", { name: "重命名清单" }));
   await screen.findByText("重命名失败，输入已保留。请重试。");
@@ -171,7 +179,10 @@ it("preserves drafts, membership and selection on failed create/rename/move/dele
   expect(tasks[0].listId).toBe(1);
   expect((screen.getByLabelText("所属清单") as HTMLSelectElement).value).toBe("inbox");
   fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
-  fireEvent.click(await screen.findByRole("button", { name: "放弃修改并关闭" }));
+  await screen.findByText("保存失败，草稿已保留。请重试。");
+  expect((screen.getByLabelText("所属清单") as HTMLSelectElement).value).toBe("inbox");
+  change("所属清单", "1");
+  fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   vi.mocked(listRepository.delete).mockRejectedValue(new Error("locked"));
   fireEvent.click(screen.getByRole("button", { name: "删除清单" })); fireEvent.click(screen.getByRole("button", { name: "确认删除清单" }));
@@ -182,6 +193,7 @@ it("preserves drafts, membership and selection on failed create/rename/move/dele
 it("rejects blank names and resolves a selection removed on refetch to Inbox", async () => {
   const client = setup();
   await screen.findByRole("button", { name: "打开清单：工作" });
+  openCreateList();
   change("新清单名称", "   "); fireEvent.submit(screen.getByRole("form", { name: "创建清单" }));
   await screen.findByText("清单名称长度必须为 1 至 100 个字符"); expect(listRepository.create).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "打开清单：工作" })); await screen.findByText("Work task");

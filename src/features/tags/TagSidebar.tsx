@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Plus } from "lucide-react";
 import { parseTagName, TagConflictError, TagValidationError } from "@/domain/tag";
 import { useCreateTag, useDeleteTag, useTags } from "./queries";
 
@@ -9,6 +10,7 @@ export function TagSidebar({ selectedId, onSelect, onDeleted }: { selectedId: nu
   const create = useCreateTag();
   const remove = useDeleteTag();
   const [draft, setDraft] = useState("");
+  const [creating, setCreating] = useState(false);
   const [confirming, setConfirming] = useState<number | null>(null);
   const [error, setError] = useState<string>();
   const writing = useRef(false);
@@ -26,6 +28,7 @@ export function TagSidebar({ selectedId, onSelect, onDeleted }: { selectedId: nu
     try {
       await create.mutateAsync(name);
       setDraft("");
+      setCreating(false);
     } catch (cause) { setError(cause instanceof TagConflictError ? "标签名称已存在，请使用其他名称。" : "创建标签失败，输入已保留。请重试。"); }
     finally { writing.current = false; }
   }
@@ -43,7 +46,10 @@ export function TagSidebar({ selectedId, onSelect, onDeleted }: { selectedId: nu
   }
 
   return <section aria-labelledby="tags-heading" className="space-y-3 border-t border-border pt-5">
-    <h2 id="tags-heading" className="text-sm font-medium">标签</h2>
+    <div className="flex items-center justify-between gap-2">
+      <h2 id="tags-heading" className="text-sm font-medium">标签</h2>
+      <Button variant="ghost" size="icon-sm" aria-label="新建标签" aria-expanded={creating} aria-controls="create-tag-form" onClick={() => { setCreating((value) => !value); setError(undefined); }}><Plus aria-hidden="true" className="size-4" /></Button>
+    </div>
     <nav aria-label="按标签查看任务" className="space-y-1">
       {tags.data?.map((tag) => <div key={tag.id} className="flex min-w-0 items-center gap-1">
         <Button className="h-auto min-w-0 flex-1 justify-start whitespace-normal break-all text-left" variant={selectedId === tag.id ? "secondary" : "ghost"} aria-label={`打开标签：${tag.name}`} aria-current={selectedId === tag.id ? "page" : undefined} onClick={() => onSelect(tag.id)}># {tag.name}</Button>
@@ -57,13 +63,13 @@ export function TagSidebar({ selectedId, onSelect, onDeleted }: { selectedId: nu
       <Button variant="destructive" size="sm" disabled={pending} aria-label={`确认删除标签：${confirmed.name}`} onClick={() => void deleteTag(confirmed.id)}>确认删除标签</Button>
       <Button variant="outline" size="sm" disabled={pending} onClick={() => { setConfirming(null); setError(undefined); }}>取消删除标签</Button>
     </div>}
-    <form aria-label="创建标签" onSubmit={(event) => void add(event)} className="space-y-2">
+    {creating && <form id="create-tag-form" aria-label="创建标签" onSubmit={(event) => void add(event)} className="space-y-2 rounded-lg border border-border p-3">
       <label htmlFor="new-tag-name" className="text-sm">新标签名称</label>
       <Input id="new-tag-name" placeholder="例如：工作" value={draft} disabled={pending || !tags.isSuccess} onChange={(event) => setDraft(event.target.value)}
         onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
         onKeyDown={(event) => { if (event.key === "Enter" && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) event.preventDefault(); }} />
-      <Button type="submit" variant="outline" disabled={pending || !tags.isSuccess}>{create.isPending ? "正在创建…" : "创建标签"}</Button>
-    </form>
+      <div className="flex flex-wrap gap-2"><Button type="submit" variant="outline" disabled={pending || !tags.isSuccess}>{create.isPending ? "正在创建…" : "创建标签"}</Button><Button type="button" variant="ghost" disabled={pending} onClick={() => { setCreating(false); setDraft(""); setError(undefined); }}>取消</Button></div>
+    </form>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </section>;
 }

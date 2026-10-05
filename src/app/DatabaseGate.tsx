@@ -1,9 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { initDatabase } from "@/data/db/initDatabase";
+import { isBrowserDebug } from "./browserDebug";
 
 export function DatabaseGate({ children }: { children: ReactNode }) {
-  const [view, setView] = useState<"loading" | "ready" | "error">("loading");
+  const [view, setView] = useState<"loading" | "ready" | "error">(() => isBrowserDebug() ? "ready" : "loading");
   useEffect(() => {
+    if (isBrowserDebug()) return;
     let active = true;
     initDatabase().then(
       () => active && setView("ready"),
