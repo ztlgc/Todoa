@@ -7,6 +7,28 @@ use std::{borrow::Cow, process::Command};
 use tempfile::TempDir;
 const TIME: &str = "2026-10-04T01:02:03.004Z";
 
+#[test]
+fn previous_schema_backup_remains_valid_for_migration_on_restore() {
+    tauri::async_runtime::block_on(async {
+        let mut connection = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+        Migrator {
+            migrations: Cow::Owned(vec![Migration::new(
+                1,
+                "initial_schema".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0001_initial.sql").into(),
+                false,
+            )]),
+            ..Migrator::DEFAULT
+        }
+        .run(&mut connection)
+        .await
+        .unwrap();
+        inspect(&mut connection).await.unwrap();
+        connection.close().await.unwrap();
+    });
+}
+
 async fn database(root: &Path, title: &str) -> SqlitePool {
     fs::create_dir_all(root).unwrap();
     let pool = SqlitePoolOptions::new()
@@ -20,13 +42,29 @@ async fn database(root: &Path, title: &str) -> SqlitePool {
         .await
         .unwrap();
     Migrator {
-        migrations: Cow::Owned(vec![Migration::new(
-            1,
-            "initial_schema".into(),
-            MigrationType::ReversibleUp,
-            include_str!("../../../migrations/0001_initial.sql").into(),
-            false,
-        )]),
+        migrations: Cow::Owned(vec![
+            Migration::new(
+                1,
+                "initial_schema".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0001_initial.sql").into(),
+                false,
+            ),
+            Migration::new(
+                2,
+                "natural_schedule".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0002_natural_schedule.sql").into(),
+                false,
+            ),
+            Migration::new(
+                3,
+                "task_priority".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0003_task_priority.sql").into(),
+                false,
+            ),
+        ]),
         ..Migrator::DEFAULT
     }
     .run(&pool)
@@ -139,7 +177,7 @@ fn rejects_corruption_identity_future_history_schema_foreign_keys_and_sidecars()
         snapshot(&pool, &pristine).await.unwrap();
         for (sql, expected) in [
             ("PRAGMA application_id=1", "BACKUP_ID_MISMATCH"),
-            ("PRAGMA user_version=2", "BACKUP_FUTURE_SCHEMA"),
+            ("PRAGMA user_version=4", "BACKUP_FUTURE_SCHEMA"),
             ("PRAGMA user_version=0", "BACKUP_UNSUPPORTED_SCHEMA"),
             ("DELETE FROM _sqlx_migrations", "BACKUP_MIGRATION_HISTORY"),
             (

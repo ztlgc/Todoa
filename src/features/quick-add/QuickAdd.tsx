@@ -4,6 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { parseTaskTitle } from "@/domain/task";
+import { parseNaturalTaskInput } from "@/domain/naturalTaskInput";
 
 export function QuickAdd() {
   const [draft, setDraft] = useState("");
@@ -45,14 +46,17 @@ export function QuickAdd() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current || composing.current || quitting) return;
+    const parsed = parseNaturalTaskInput(draft);
     let title: string;
-    try { title = parseTaskTitle(draft); }
+    try { title = parseTaskTitle(parsed.title); }
     catch { setError("请输入 1 至 500 个有效字符的任务标题。"); return; }
     submitting.current = true;
     setPending(true);
     setError("");
     try {
-      await invoke<number>("create_quick_task", { title });
+      if (parsed.dueAt || parsed.repeatRule || parsed.remindAt.length) {
+        await invoke<number>("create_quick_scheduled_task", { input: { title, listId: null, notes: "", dueAt: parsed.dueAt, repeatRule: parsed.repeatRule, remindAt: parsed.remindAt, reminderOffsets: parsed.reminderOffsets } });
+      } else await invoke<number>("create_quick_task", { title });
     } catch {
       setError("创建失败，输入已保留。请重试。");
       submitting.current = false;

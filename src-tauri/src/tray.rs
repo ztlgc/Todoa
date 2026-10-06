@@ -1,6 +1,6 @@
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
+    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
 
@@ -21,6 +21,9 @@ pub fn initialize(app: &AppHandle) -> Result<(), &'static str> {
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)
         .map_err(|_| "TRAY_MENU_FAILED")?;
     let menu = Menu::with_items(app, &[&show, &quick, &quit]).map_err(|_| "TRAY_MENU_FAILED")?;
+    #[cfg(windows)]
+    let icon = tauri::image::Image::from_app_icon_resource(32).map_err(|_| "TRAY_ICON_MISSING")?;
+    #[cfg(not(windows))]
     let icon = app
         .default_window_icon()
         .cloned()
@@ -30,6 +33,17 @@ pub fn initialize(app: &AppHandle) -> Result<(), &'static str> {
         .tooltip("Todoa")
         .menu(&menu)
         .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            if matches!(
+                event,
+                TrayIconEvent::DoubleClick {
+                    button: MouseButton::Left,
+                    ..
+                }
+            ) {
+                crate::lifecycle::activate_main(tray.app_handle());
+            }
+        })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show-main" => crate::lifecycle::activate_main(app),
             "quick-add" => {

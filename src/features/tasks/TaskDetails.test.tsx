@@ -84,7 +84,16 @@ it("saves validated task fields and list together, with explicit date clearing",
   await screen.findByLabelText("任务标题"); fireEvent.click(screen.getByRole("button", { name: "清空截止时间" }));
   fireEvent.change(screen.getByLabelText("任务标题"), { target: { value: "  新标题  " } });
   fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, { title: "新标题", notes: "原始备注", dueAt: null, listId: null }));
+  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, { title: "新标题", notes: "原始备注", dueAt: null, listId: null, priority: "none" }));
+});
+it("edits and saves priority with the task", async () => {
+  vi.mocked(taskRepository.update).mockResolvedValue({ ...task, priority: "high" });
+  setup();
+  const select = await screen.findByLabelText("优先级") as HTMLSelectElement;
+  expect(select.value).toBe("none");
+  fireEvent.change(select, { target: { value: "high" } });
+  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
+  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ priority: "high" })));
 });
 it("shows minute precision, opens the picker on click, and preserves untouched stored seconds", async () => {
   const dueAt = "2026-10-05T00:00:37.123Z";

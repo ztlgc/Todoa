@@ -7,7 +7,7 @@ use tauri_plugin_sql::{DbInstances, DbPool, Migration, MigrationKind};
 pub mod backup;
 
 pub const DATABASE_URL: &str = "sqlite:todo.db";
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 3;
 const APPLICATION_ID: i64 = 0x5754_4431;
 
 #[derive(Clone, Copy)]
@@ -22,20 +22,34 @@ pub fn plugin<R: Runtime>(
     tauri_plugin_sql::Builder::new()
         .add_migrations(
             DATABASE_URL,
-            vec![Migration {
-                version: SCHEMA_VERSION,
-                description: "initial_schema",
-                sql: if fail_migration
-                    && cfg!(all(
-                        debug_assertions,
-                        feature = "test-restore-startup-failure"
-                    )) {
-                    "SELECT todoa_invalid_restore_migration;"
-                } else {
-                    include_str!("../../migrations/0001_initial.sql")
+            vec![
+                Migration {
+                    version: 1,
+                    description: "initial_schema",
+                    sql: if fail_migration
+                        && cfg!(all(
+                            debug_assertions,
+                            feature = "test-restore-startup-failure"
+                        )) {
+                        "SELECT todoa_invalid_restore_migration;"
+                    } else {
+                        include_str!("../../migrations/0001_initial.sql")
+                    },
+                    kind: MigrationKind::Up,
                 },
-                kind: MigrationKind::Up,
-            }],
+                Migration {
+                    version: 2,
+                    description: "natural_schedule",
+                    sql: include_str!("../../migrations/0002_natural_schedule.sql"),
+                    kind: MigrationKind::Up,
+                },
+                Migration {
+                    version: 3,
+                    description: "task_priority",
+                    sql: include_str!("../../migrations/0003_task_priority.sql"),
+                    kind: MigrationKind::Up,
+                },
+            ],
         )
         .build()
 }
@@ -195,12 +209,12 @@ async fn verify_pool(pool: &SqlitePool, expected_path: &Path) -> Result<(), &'st
     }
 
     let migration_count: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM _sqlx_migrations WHERE version = 1 AND success = 1",
+        "SELECT count(*) FROM _sqlx_migrations WHERE version IN (1, 2, 3) AND success = 1",
     )
     .fetch_one(pool)
     .await
     .map_err(|_| "MIGRATION_HISTORY_MISSING")?;
-    if migration_count != 1 {
+    if migration_count != 3 {
         return Err("MIGRATION_HISTORY_MISSING");
     }
 

@@ -36,7 +36,7 @@ beforeEach(() => {
   vi.mocked(listRepository.create).mockImplementation(async (name) => { const created = { ...list, id: 2, name }; lists = [...lists, created]; return created; });
   vi.mocked(listRepository.rename).mockImplementation(async (id, name) => { lists = lists.map((item) => item.id === id ? { ...item, name } : item); });
   vi.mocked(listRepository.delete).mockImplementation(async (id) => { lists = lists.filter((item) => item.id !== id); tasks = tasks.map((item) => item.listId === id ? { ...item, listId: null } : item); });
-  vi.mocked(taskRepository.list).mockImplementation(async (filters) => tasks.filter((item) => item.listId === filters?.listId));
+  vi.mocked(taskRepository.list).mockImplementation(async (filters) => filters?.listId === undefined ? [...tasks] : tasks.filter((item) => item.listId === filters.listId));
   vi.mocked(taskRepository.create).mockImplementation(async (input) => { const created = { ...task, id: 2, title: input.title, listId: input.listId ?? null }; tasks = [...tasks, created]; return created; });
   vi.mocked(taskRepository.getById).mockImplementation(async id => tasks.find(item => item.id === id) ?? null);
   vi.mocked(taskRepository.update).mockImplementation(async (id, input) => { tasks = tasks.map(item => item.id === id ? { ...item, ...input } : item); return tasks.find(item => item.id === id)!; });
@@ -65,8 +65,23 @@ it("separates task navigation from settings groups", async () => {
   expect(screen.queryByRole("navigation", { name: "任务视图" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /^数据$/ }));
   await screen.findByRole("heading", { name: "数据" });
+  fireEvent.click(screen.getByRole("button", { name: /^统计$/ }));
+  await screen.findByRole("heading", { name: "统计" });
+  await screen.findByText("完成进度");
+  expect(screen.getByRole("progressbar", { name: "任务完成率" }).getAttribute("aria-valuenow")).toBe("0");
   fireEvent.click(screen.getByRole("button", { name: /^任务$/ }));
   await screen.findByRole("heading", { name: "收件箱" });
+});
+
+it("opens the task inspector from a calendar day cell task", async () => {
+  const due = new Date();
+  due.setDate(due.getDate() + 1);
+  due.setHours(12, 0, 0, 0);
+  tasks = [{ ...task, title: "Calendar task", dueAt: due.toISOString() }];
+  setup();
+  fireEvent.click(screen.getByRole("button", { name: /^日历$/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "打开任务：Calendar task" }));
+  expect(await screen.findByRole("dialog", { name: "Calendar task" })).toBeTruthy();
 });
 
 it("closes compact navigation after choosing a task view", async () => {

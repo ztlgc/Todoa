@@ -23,6 +23,34 @@ fn migrator(sql: &'static str) -> Migrator {
         ..Migrator::DEFAULT
     }
 }
+fn current_migrator() -> Migrator {
+    Migrator {
+        migrations: Cow::Owned(vec![
+            SqlxMigration::new(
+                1,
+                "initial_schema".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0001_initial.sql").into(),
+                false,
+            ),
+            SqlxMigration::new(
+                2,
+                "natural_schedule".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0002_natural_schedule.sql").into(),
+                false,
+            ),
+            SqlxMigration::new(
+                3,
+                "task_priority".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0003_task_priority.sql").into(),
+                false,
+            ),
+        ]),
+        ..Migrator::DEFAULT
+    }
+}
 
 async fn database() -> (TempDir, SqlitePool) {
     let dir = tempfile::tempdir().unwrap();
@@ -40,10 +68,7 @@ async fn database() -> (TempDir, SqlitePool) {
 }
 
 async fn install(pool: &SqlitePool) {
-    migrator(include_str!("../../migrations/0001_initial.sql"))
-        .run(pool)
-        .await
-        .unwrap();
+    current_migrator().run(pool).await.unwrap();
     let mode: String = sqlx::query_scalar("PRAGMA journal_mode")
         .fetch_one(pool)
         .await
@@ -61,10 +86,7 @@ fn migration_schema_constraints_and_repeat() {
         assert_eq!(check_existing_database(&path).await, Ok(()));
         verify_pool(&pool, &path).await.unwrap();
 
-        migrator(include_str!("../../migrations/0001_initial.sql"))
-            .run(&pool)
-            .await
-            .unwrap();
+        current_migrator().run(&pool).await.unwrap();
         let count: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM _sqlx_migrations WHERE version=1 AND success=1",
         )
@@ -241,7 +263,7 @@ fn preflight_rejects_unknown_future_and_bad_identity() {
         pool.execute("PRAGMA application_id=0x57544431")
             .await
             .unwrap();
-        pool.execute("PRAGMA user_version=2").await.unwrap();
+        pool.execute("PRAGMA user_version=4").await.unwrap();
         assert_eq!(check_existing_database(&path).await, Err("FUTURE_SCHEMA"));
         pool.execute("PRAGMA user_version=0").await.unwrap();
         assert_eq!(

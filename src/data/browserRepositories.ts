@@ -2,10 +2,12 @@ import { parseCreateTaskInput, parseTaskFilters, parseTaskId, parseTaskStatus, p
 import { parseListId, parseListName, type TaskList } from "@/domain/list";
 import { parseTagId, parseTagName, TagConflictError, type Tag, type TaskTag } from "@/domain/tag";
 import type { Reminder } from "./repositories/ReminderRepository";
+import { nextRepeatDue } from "@/domain/naturalTaskInput";
 
 // Browser dev data is deliberately separate from the desktop SQLite database.
 const state = {
   tasks: [] as Task[], lists: [] as TaskList[], tags: [] as Tag[], taskTags: [] as TaskTag[], reminders: [] as Reminder[],
+  generatedReminderIds: new Set<number>(),
   nextTask: 1, nextList: 1, nextTag: 1, nextReminder: 1,
 };
 const stamp = () => new Date().toISOString();
@@ -25,19 +27,63 @@ export const browserTaskRepository = {
   async getById(id: number): Promise<Task | null> { return state.tasks.find((task) => task.id === parseTaskId(id)) ?? null; },
   async create(input: CreateTaskInput): Promise<Task> {
     const parsed = parseCreateTaskInput(input), now = stamp();
-    const task: Task = { id: state.nextTask++, ...parsed, status: "todo", completedAt: null, sortOrder: state.tasks.length, createdAt: now, updatedAt: now };
-    state.tasks.push(task); return task;
+    const task: Task = { id: state.nextTask++, title: parsed.title, listId: parsed.listId, notes: parsed.notes, dueAt: parsed.dueAt, repeatRule: parsed.repeatRule, reminderOffsets: parsed.reminderOffsets, priority: parsed.priority, status: "todo", completedAt: null, sortOrder: state.tasks.length, createdAt: now, updatedAt: now };
+    if (parsed.remindAt.some(time => Date.parse(time) <= Date.now())) throw new Error("提醒时间已过去，请调整时间。");
+    state.tasks.push(task);
+    for (const time of parsed.remindAt) {
+      const id = state.nextReminder++;
+      state.reminders.push({ id, taskId: task.id, remindAt: time, triggeredAt: null });
+      state.generatedReminderIds.add(id);
+    }
+    return task;
   },
   async update(id: number, input: UpdateTaskInput): Promise<Task> {
     const task = state.tasks.find((item) => item.id === parseTaskId(id));
     if (!task) throw new Error("任务不存在");
-    Object.assign(task, parseUpdateTaskInput(input), { updatedAt: stamp() });
+    const parsed = parseUpdateTaskInput(input);
+    const changedDue = parsed.dueAt !== undefined && parsed.dueAt !== task.dueAt;
+    if (changedDue) {
+      state.reminders = state.reminders.filter(reminder => reminder.taskId !== task.id || reminder.triggeredAt !== null || !state.generatedReminderIds.has(reminder.id));
+    }
+    Object.assign(task, parsed, { updatedAt: stamp() });
+    if (changedDue) {
+      if (!task.dueAt) { task.repeatRule = null; task.reminderOffsets = []; }
+      else if (task.status === "todo") {
+        for (const offset of task.reminderOffsets ?? []) {
+          const remindAt = new Date(Date.parse(task.dueAt) - offset * 60000).toISOString();
+          if (Date.parse(remindAt) <= Date.now()) continue;
+          const id = state.nextReminder++;
+          state.reminders.push({ id, taskId: task.id, remindAt, triggeredAt: null });
+          state.generatedReminderIds.add(id);
+        }
+      }
+    }
     return { ...task };
   },
   async updateStatus(id: number, status: TaskStatus): Promise<void> {
     const task = state.tasks.find((item) => item.id === parseTaskId(id));
     if (!task) throw new Error("任务不存在");
+    const wasTodo = task.status === "todo";
     task.status = parseTaskStatus(status); task.completedAt = status === "completed" ? stamp() : null; task.updatedAt = stamp();
+    if (status === "completed") {
+      state.reminders = state.reminders.filter(reminder => reminder.taskId !== task.id || reminder.triggeredAt !== null);
+      if (wasTodo && task.repeatRule && task.dueAt) {
+        const dueAt = nextRepeatDue(task.dueAt, task.repeatRule);
+        if (dueAt) {
+          const next: Task = { ...task, id: state.nextTask++, dueAt, status: "todo", completedAt: null, createdAt: stamp(), updatedAt: stamp() };
+          state.tasks.push(next);
+          for (const link of state.taskTags.filter(link => link.taskId === task.id)) state.taskTags.push({ taskId: next.id, tagId: link.tagId });
+          for (const offset of task.reminderOffsets ?? []) {
+            const remindAt = new Date(Date.parse(dueAt) - offset * 60000).toISOString();
+            if (Date.parse(remindAt) > Date.now()) {
+              const id = state.nextReminder++;
+              state.reminders.push({ id, taskId: next.id, remindAt, triggeredAt: null });
+              state.generatedReminderIds.add(id);
+            }
+          }
+        }
+      }
+    }
   },
   async delete(id: number): Promise<void> {
     const taskId = parseTaskId(id), index = state.tasks.findIndex((task) => task.id === taskId);

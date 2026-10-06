@@ -68,6 +68,13 @@ it("rejects blank input and creates via Query before clearing the draft", async 
   expect(taskRepository.list).toHaveBeenCalledWith({ listId: null });
 });
 
+it("shows the saved priority beneath the task and colors its checkbox", async () => {
+  rows = [{ ...task, priority: "high" }];
+  renderInbox();
+  await screen.findByText("高优先级");
+  expect(screen.getByRole("checkbox", { name: "完成：Buy milk" }).className).toContain("border-red-500");
+});
+
 it("does not submit during IME composition", async () => {
   renderInbox();
   await screen.findByText("收件箱为空");

@@ -114,7 +114,7 @@ def main():
         user32.SetCursorPos(x,y)
         user32.mouse_event(0x8 if right else 0x2,0,0,0,0)
         user32.mouse_event(0x10 if right else 0x4,0,0,0,0)
-    def menu(label):
+    def visible_icon_rect():
         rect=icon_rect()
         # Newly created icons may be in the real Windows overflow flyout.
         tray = user32.FindWindowW('Shell_TrayWnd',None)
@@ -124,7 +124,9 @@ def main():
         if chevron and (not overflow or not user32.IsWindowVisible(overflow)):
             user32.SendMessageW(chevron,0x00F5,0,0)  # Actual Shell chevron BM_CLICK.
             time.sleep(0.2)
-        rect=icon_rect()
+        return icon_rect()
+    def menu(label):
+        rect=visible_icon_rect()
         click_point((rect.left+rect.right)//2,(rect.top+rect.bottom)//2,True)
         popup=wait(lambda: (owned_windows(session.pid,'#32768') or [None])[0])
         handle=user32.SendMessageW(popup,0x01E1,0,0)  # MN_GETHMENU, native popup.
@@ -182,6 +184,12 @@ def main():
             icon_rect(); record('01-real-shell-tray-ready',True)
             close_main(); wait(lambda:not window('Todoa')['visible'])
             assert app_pids()=={session.pid}; record('02-close-hides-main-with-live-database')
+            rect=visible_icon_rect()
+            x,y=(rect.left+rect.right)//2,(rect.top+rect.bottom)//2
+            click_point(x,y); time.sleep(0.08); click_point(x,y)
+            wait(lambda:window('Todoa')['visible'] and window('Todoa')['foreground'])
+            record('02a-tray-double-click-recovers-main',True)
+            close_main(); wait(lambda:not window('Todoa')['visible'])
             menu('显示主窗口'); wait(lambda:window('Todoa')['visible'] and window('Todoa')['foreground'])
             session.ready(); session.keys('Main after tray\ue007')
             wait(lambda:any(row['title']=='Main after tray' for row in snapshot()))

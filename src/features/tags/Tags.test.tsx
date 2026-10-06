@@ -32,7 +32,7 @@ async function ready() { await screen.findByText("Inbox tagged"); }
 function openTags() { fireEvent.click(screen.getByRole("button", { name: "打开标签" })); }
 function openCreateTag() { fireEvent.click(screen.getByRole("button", { name: "新建标签" })); }
 async function edit(title = "Inbox tagged") { fireEvent.click(screen.getByRole("button", { name: `编辑任务：${title}` })); await screen.findByLabelText(`分配标签：${title}`); }
-async function closeDetail() { fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); }
+async function closeDetail() { await waitFor(() => expect(screen.queryByText("正在保存标签…")).toBeNull()); fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); }
 beforeEach(() => {
   vi.resetAllMocks(); onlineManager.setOnline(true);
   tags = [tag]; links = [{ taskId: 1, tagId: 2 }];
@@ -66,6 +66,19 @@ it("validates names, ignores IME Enter, creates trimmed Chinese names and preser
   change("新标签名称", "work"); fireEvent.submit(screen.getByRole("form", { name: "创建标签" }));
   await screen.findByText("标签名称已存在，请使用其他名称。");
   expect((screen.getByLabelText("新标签名称") as HTMLInputElement).value).toBe("work");
+});
+
+it("creates and assigns a tag from task details when no tags exist", async () => {
+  tags = []; links = [];
+  setup(); await ready();
+  fireEvent.click(screen.getByRole("button", { name: "编辑任务：Inbox tagged" }));
+  await screen.findByLabelText("新标签名称");
+  change("新标签名称", "  工作  ");
+  fireEvent.click(screen.getByRole("button", { name: "分配所选标签：Inbox tagged" }));
+  await screen.findByRole("button", { name: "移除标签：Inbox tagged：工作" });
+  expect(tagRepository.create).toHaveBeenCalledWith("工作");
+  expect(tagRepository.assign).toHaveBeenCalledWith(1, 4);
+  await closeDetail();
 });
 
 it("assigns a duplicate once, removes only the relation and invalidates all relevant caches offline", async () => {

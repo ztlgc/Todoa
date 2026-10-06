@@ -12,10 +12,7 @@ function localTime(value:string) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 }
 export function TaskReminders({task,disabled,onDraftChange,onBusyChange,onRegisterDraftSave}:{task:Task;disabled:boolean;onDraftChange?:(dirty:boolean)=>void;onBusyChange?:(busy:boolean)=>void;onRegisterDraftSave?:(save:(()=>Promise<boolean>)|null)=>void}) {
-  const [open,setOpen]=useState(false);
-  const draft=useRef(false);
-  const {confirm,confirmation}=useConfirmDialog();
-  return <div className="pl-7">{confirmation}<Button size="sm" variant="ghost" disabled={disabled} onClick={async()=>{if(open&&draft.current&&!(await confirm("放弃未保存的提醒输入？")))return;setOpen(!open);draft.current=false;onDraftChange?.(false);}} aria-expanded={open}>提醒</Button>{open&&<ReminderPanel task={task} disabled={disabled} onDraftChange={value=>{draft.current=value;onDraftChange?.(value);}} onBusyChange={onBusyChange} onRegisterDraftSave={onRegisterDraftSave}/>}</div>;
+  return <div className="space-y-2 pl-7"><h4 className="text-sm font-medium">提醒</h4><ReminderPanel task={task} disabled={disabled} onDraftChange={onDraftChange} onBusyChange={onBusyChange} onRegisterDraftSave={onRegisterDraftSave}/></div>;
 }
 function NotificationNotice() {
   const status=useSchedulerStatus();
@@ -51,6 +48,7 @@ function ReminderPanel({task,disabled,onDraftChange,onBusyChange,onRegisterDraft
     {confirmation}<NotificationNotice/>
     {query.isPending&&<p role="status">正在读取提醒…</p>}
     {query.isError&&<p role="alert">提醒读取失败。<Button onClick={()=>void query.refetch()}>重试</Button></p>}
+    {query.isSuccess&&query.data.length===0&&<p className="text-xs text-muted-foreground">暂无提醒</p>}
     {query.data?.map(r=><div key={r.id} data-reminder-id={r.id} className="flex flex-wrap items-center gap-2 text-sm"><time dateTime={r.remindAt}>{new Date(r.remindAt).toLocaleString()}</time><span>{r.triggeredAt?"API 已接受":"待触发"}</span>{!r.triggeredAt&&task.status==="todo"&&<Button size="sm" variant="outline" disabled={blocked} onClick={async()=>{if(draft&&!(await confirm("放弃当前提醒输入并编辑这条提醒？")))return;draftZone.current=Intl.DateTimeFormat().resolvedOptions().timeZone;setEditing(r.id);setDraft(localTime(r.remindAt));onDraftChange?.(true);setError(undefined);}}>编辑提醒</Button>}<Button size="sm" variant="ghost" disabled={blocked} onClick={()=>void remove(r.id)}>删除提醒</Button></div>)}
     {task.status==="todo"?<form onSubmit={event=>{event.preventDefault();void saveDraft();}} className="flex flex-wrap gap-2"><label className="text-sm" htmlFor={`remind-${task.id}`}>{editing===undefined?"新增提醒":"编辑提醒"}</label><Input id={`remind-${task.id}`} type="datetime-local" value={draft} onChange={e=>{draftZone.current=Intl.DateTimeFormat().resolvedOptions().timeZone;setDraft(e.target.value);onDraftChange?.(!!e.target.value);}} onCompositionStart={()=>{composing.current=true;}} onCompositionEnd={()=>{composing.current=false;}} onKeyDown={event=>{if(event.key==="Enter"&&(composing.current||event.nativeEvent.isComposing||event.keyCode===229))event.preventDefault();}} disabled={blocked||!query.isSuccess} className="min-w-0 max-w-full sm:w-auto"/><Button type="submit" disabled={blocked||!query.isSuccess}>{write.isPending?"正在保存…":"保存提醒"}</Button>{draft&&<Button type="button" variant="ghost" disabled={blocked} onClick={()=>{setEditing(undefined);setDraft("");onDraftChange?.(false);}}>清空提醒输入</Button>}</form>:<p className="text-xs">已完成任务不能新增提醒；取消完成不会恢复已取消提醒。</p>}
     {error&&<p role="alert" className="text-sm text-destructive">{error}</p>}

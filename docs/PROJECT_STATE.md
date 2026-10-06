@@ -633,3 +633,17 @@ STEP 17 状态：已验收（开发 Gate）。STEP 22 发布 Gate 尚未通过�
 - 任务 Inspector 增加真实完成状态操作与永久删除确认；任务行删除确认补充关联标签和提醒的删除后果。相关操作复用现有任务 Mutation，不复制业务状态。
 - `pnpm build`、`pnpm lint` 和 `pnpm test` 均退出 0；21 个测试文件、79 项测试通过。隔离 `pnpm tauri build --debug --no-bundle --config src-tauri/tauri.step20-test.conf.json` 退出 0。
 - 原生 Windows 10 x64 隔离身份 `com.todoa.desktop.test.step20` 的最终证据：`docs/evidence/step20-uiux-20261005-113333/report.json`，19 项 PASS，包含三档布局、纵向 Rail、侧栏 Escape/焦点返回、Inspector 完成/取消完成的真实数据操作和删除确认，以及隔离任务创建/清理。已查看 Wide 和 Compact 截图。未将这些证据扩展为 Windows 11 或安装版验收。
+
+## Windows 任务栏与托盘图标修复（2026-10-05）
+
+- Windows ICO 的 16/24/32 像素帧改用简化、放大的勾选图形；32x32 PNG 同步更新。48 像素及以上继续使用现有完整图标。托盘从可执行文件的 32 像素图标资源取图，避免把默认大图直接缩到通知区域；生成源为 `src-tauri/icons/todoa-small.svg` 与 `tools/generate_windows_icons.py`。
+- 托盘左键双击调用现有 Main 激活路径，恢复最小化或隐藏窗口并聚焦。右键菜单和退出路径仍按原流程。
+- `cargo fmt --all -- --check`、`cargo check --target x86_64-pc-windows-msvc`、隔离 `pnpm tauri build --debug --no-bundle --config src-tauri/tauri.step15-test.conf.json --target x86_64-pc-windows-msvc` 均退出 0。真实 Windows Shell 双击、窗口恢复聚焦及菜单正常退出证据：`docs/evidence/tray-double-click-20261005-193849/report.json`，PASS；仅启动隔离 `com.todoa.desktop.test.step15`，没有关闭或替换正在运行的安装版。安装版更新和 STEP 22 发布验收尚未执行。
+
+## 本地 1.0.0 发布（2026-10-06）
+
+- 在浏览器调试页添加临时示例数据，拍摄收件箱、任务详情和日历截图，存于 `docs/screenshots/`；调试数据未写入正式桌面数据库。
+- `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 和 `Cargo.lock` 版本统一为 1.0.0。
+- `pnpm lint`、`pnpm test`（23 个文件、138 项）、`pnpm build`、`cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`、`cargo check --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc` 与 `cargo test --locked --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc`（34 项）均退出 0。
+- `pnpm tauri build --ci --bundles nsis --target x86_64-pc-windows-msvc` 退出 0；新安装包 `releases/v1.0.0/Todoa_1.0.0_x64-setup.exe` 长度 2,834,156 字节，ProductVersion 1.0.0，SHA-256 为 `e9aa3f08c3536c43cb30a958903e7ba1800a894a0d3f3860a1f765057d6c1626`，与构建输出一致。安装包未签名。
+- 本地安装包及其校验值已归档。1.0.0 安装后的操作、Windows 11、安装版通知和真实登录自启仍未验收。

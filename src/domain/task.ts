@@ -2,6 +2,14 @@ import { parseListId } from "./list";
 import { parseTagId } from "./tag";
 
 export type TaskStatus = "todo" | "completed";
+export type TaskPriority = "high" | "medium" | "low" | "none";
+
+export function parseTaskPriority(value: unknown): TaskPriority {
+  if (value !== "high" && value !== "medium" && value !== "low" && value !== "none") {
+    throw new TaskValidationError("任务优先级无效");
+  }
+  return value;
+}
 
 export interface Task {
   id: number;
@@ -9,7 +17,10 @@ export interface Task {
   title: string;
   notes: string;
   status: TaskStatus;
+  priority?: TaskPriority;
   dueAt: string | null;
+  repeatRule?: string | null;
+  reminderOffsets?: number[];
   completedAt: string | null;
   sortOrder: number;
   createdAt: string;
@@ -21,6 +32,10 @@ export interface CreateTaskInput {
   listId?: number | null;
   notes?: string;
   dueAt?: string | null;
+  priority?: TaskPriority;
+  repeatRule?: string | null;
+  remindAt?: string[];
+  reminderOffsets?: number[];
 }
 
 export interface UpdateTaskInput {
@@ -28,6 +43,7 @@ export interface UpdateTaskInput {
   title?: string;
   notes?: string;
   dueAt?: string | null;
+  priority?: TaskPriority;
 }
 
 export interface TaskFilters {
@@ -116,15 +132,23 @@ export function parseTaskTime(value: unknown): string {
   return utc.toISOString();
 }
 
-export function parseCreateTaskInput(value: CreateTaskInput): { title: string; notes: string; dueAt: string | null; listId: number | null } {
+export function parseCreateTaskInput(value: CreateTaskInput): { title: string; notes: string; dueAt: string | null; listId: number | null; repeatRule: string | null; remindAt: string[]; reminderOffsets: number[]; priority: TaskPriority } {
   if (value === null || typeof value !== "object") {
     throw new TaskValidationError("任务输入无效");
   }
+  const repeatRule = value.repeatRule ?? null;
+  if (repeatRule !== null && !/^(?:day|week|month|year):[1-9]\d{0,2}$|^week-monday$|^weekday$|^weekend$|^month-last$|^month-day:(?:[1-9]|[12]\d|3[01])$|^year-date:(?:[1-9]|1[0-2]):(?:[1-9]|[12]\d|3[01])$/.test(repeatRule)) throw new TaskValidationError("重复规则无效");
+  const remindAt = (value.remindAt ?? []).map(parseTaskTime);
+  const reminderOffsets = value.reminderOffsets ?? [];
+  if (remindAt.length > 16 || reminderOffsets.length > 16 || reminderOffsets.some(offset => !Number.isSafeInteger(offset) || offset < 0 || offset > 525600)) throw new TaskValidationError("提醒规则无效");
+  if (remindAt.length !== reminderOffsets.length) throw new TaskValidationError("提醒时间与规则不一致");
+  if (repeatRule && !value.dueAt) throw new TaskValidationError("重复任务需要开始时间");
   return {
     title: parseTaskTitle(value.title),
     listId: value.listId == null ? null : parseListId(value.listId),
     notes: parseTaskNotes(value.notes ?? ""),
     dueAt: value.dueAt == null ? null : parseTaskTime(value.dueAt),
+    repeatRule, remindAt, reminderOffsets, priority: parseTaskPriority(value.priority ?? "none"),
   };
 }
 
@@ -137,6 +161,7 @@ export function parseUpdateTaskInput(value: UpdateTaskInput): UpdateTaskInput {
   if (value.title !== undefined) result.title = parseTaskTitle(value.title);
   if (value.notes !== undefined) result.notes = parseTaskNotes(value.notes);
   if (value.dueAt !== undefined) result.dueAt = value.dueAt === null ? null : parseTaskTime(value.dueAt);
+  if (value.priority !== undefined) result.priority = parseTaskPriority(value.priority);
   if (Object.keys(result).length === 0) {
     throw new TaskValidationError("没有可更新的任务字段");
   }

@@ -208,7 +208,7 @@ async fn inspect(c: &mut SqliteConnection) -> Result<()> {
     if version > super::SCHEMA_VERSION {
         return Err("BACKUP_FUTURE_SCHEMA".into());
     }
-    if version != super::SCHEMA_VERSION {
+    if version < 1 {
         return Err("BACKUP_UNSUPPORTED_SCHEMA".into());
     }
     let integrity: Vec<String> = sqlx::query_scalar("PRAGMA integrity_check")
@@ -231,18 +231,41 @@ async fn inspect(c: &mut SqliteConnection) -> Result<()> {
             .fetch_all(&mut *c)
             .await
             .map_err(|e| error("BACKUP_MIGRATION_HISTORY", e))?;
-    let expected = sqlx::migrate::Migration::new(
+    let initial = sqlx::migrate::Migration::new(
         1,
         "initial_schema".into(),
         sqlx::migrate::MigrationType::ReversibleUp,
         include_str!("../../migrations/0001_initial.sql").into(),
         false,
     );
-    if history.len() != 1
-        || history[0].try_get::<i64, _>("version").ok() != Some(1)
-        || history[0].try_get::<bool, _>("success").ok() != Some(true)
-        || history[0].try_get::<Vec<u8>, _>("checksum").ok().as_deref()
-            != Some(expected.checksum.as_ref())
+    let schedule = sqlx::migrate::Migration::new(
+        2,
+        "natural_schedule".into(),
+        sqlx::migrate::MigrationType::ReversibleUp,
+        include_str!("../../migrations/0002_natural_schedule.sql").into(),
+        false,
+    );
+    let priority = sqlx::migrate::Migration::new(
+        3,
+        "task_priority".into(),
+        sqlx::migrate::MigrationType::ReversibleUp,
+        include_str!("../../migrations/0003_task_priority.sql").into(),
+        false,
+    );
+    let expected = if version == 1 {
+        vec![initial]
+    } else if version == 2 {
+        vec![initial, schedule]
+    } else {
+        vec![initial, schedule, priority]
+    };
+    if history.len() != expected.len()
+        || history.iter().zip(&expected).any(|(row, migration)| {
+            row.try_get::<i64, _>("version").ok() != Some(migration.version)
+                || row.try_get::<bool, _>("success").ok() != Some(true)
+                || row.try_get::<Vec<u8>, _>("checksum").ok().as_deref()
+                    != Some(migration.checksum.as_ref())
+        })
     {
         return Err("BACKUP_MIGRATION_HISTORY".into());
     }
@@ -250,7 +273,7 @@ async fn inspect(c: &mut SqliteConnection) -> Result<()> {
         .await
         .map_err(|e| error("BACKUP_SCHEMA", e))?;
     sqlx::migrate::Migrator {
-        migrations: std::borrow::Cow::Owned(vec![expected]),
+        migrations: std::borrow::Cow::Owned(expected),
         ..sqlx::migrate::Migrator::DEFAULT
     }
     .run(&mut reference)

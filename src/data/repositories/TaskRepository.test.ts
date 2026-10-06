@@ -33,8 +33,8 @@ function fakeDatabase(rows: TaskRow[] = [row]) {
 describe("Task domain and row mapping", () => {
   it("maps all snake_case fields and preserves null", () => {
     expect(mapTaskRow(row)).toEqual({
-      id: 4, listId: null, title: "Buy milk", notes: "", status: "todo",
-      dueAt: null, completedAt: null, sortOrder: 0,
+      id: 4, listId: null, title: "Buy milk", notes: "", status: "todo", priority: "none",
+      dueAt: null, repeatRule: null, reminderOffsets: [], completedAt: null, sortOrder: 0,
       createdAt: "2026-10-04T01:02:03.000Z", updatedAt: "2026-10-04T01:02:03.000Z",
     });
     expect(mapTaskRow({ ...row, list_id: 2, status: "completed", completed_at: "2026-10-04T02:03:04.005Z" }).completedAt)
@@ -50,6 +50,9 @@ describe("Task domain and row mapping", () => {
     expect(() => parseCreateTaskInput({ title: "x".repeat(501) })).toThrow();
     expect(() => parseCreateTaskInput({ title: "ok", notes: "x".repeat(100001) })).toThrow();
     expect(() => parseUpdateTaskInput({})).toThrow();
+    expect(parseCreateTaskInput({ title: "ok", priority: "high" }).priority).toBe("high");
+    expect(parseUpdateTaskInput({ priority: "low" })).toEqual({ priority: "low" });
+    expect(() => parseUpdateTaskInput({ priority: "urgent" as "high" })).toThrow();
     expect(() => parseTaskFilters({ status: "invalid" as "todo" })).toThrow();
     expect(parseTaskFilters({})).toEqual({});
     expect(parseTaskFilters({ listId: null })).toEqual({ listId: null });
@@ -62,10 +65,10 @@ describe("Task domain and row mapping", () => {
 
 describe("TaskRepository fake adapter protocol", () => {
   it("reads detail, updates only bound allowed fields atomically, clears dates and rejects missing rows", async () => {
-    const { repo, select, execute } = fakeDatabase();
+    const { repo, select, execute, command } = fakeDatabase();
     expect(await repo.getById(4)).toMatchObject({ id: 4 });
     await repo.update(4, { title: "  'quoted'  ", notes: "中文\nplain", dueAt: null, listId: 7 });
-    expect(execute).toHaveBeenLastCalledWith("UPDATE tasks SET title = ?, notes = ?, due_at = ?, list_id = ?, updated_at = ? WHERE id = ?", ["'quoted'", "中文\nplain", null, 7, "2026-10-04T02:03:04.005Z", 4]);
+    expect(command).toHaveBeenCalledWith("update_task_schedule", { id: 4, input: { title: "'quoted'", notes: "中文\nplain", dueAt: null, listId: 7, hasDue: true, hasList: true } });
     execute.mockClear();
     await expect(repo.update(4, {})).rejects.toThrow();
     await expect(repo.update(4, { listId: 0 })).rejects.toThrow();
@@ -99,7 +102,7 @@ describe("TaskRepository fake adapter protocol", () => {
   it("creates in a list and atomically moves to a list or Inbox, validating targets", async () => {
     const { repo, execute } = fakeDatabase([{ ...row, list_id: 7 }]);
     await expect(repo.create({ title: "Buy milk", listId: 7 })).resolves.toMatchObject({ listId: 7 });
-    expect(execute).toHaveBeenLastCalledWith(expect.stringContaining("INSERT INTO tasks"), ["Buy milk", 7, "", null, "2026-10-04T02:03:04.005Z", "2026-10-04T02:03:04.005Z"]);
+    expect(execute).toHaveBeenLastCalledWith(expect.stringContaining("INSERT INTO tasks"), ["Buy milk", 7, "", null, "none", "2026-10-04T02:03:04.005Z", "2026-10-04T02:03:04.005Z"]);
     await repo.setList(4, 7);
     expect(execute).toHaveBeenLastCalledWith(expect.stringMatching(/^UPDATE tasks SET updated_at = CASE .* list_id = \? WHERE id = \?$/), [7, "2026-10-04T02:03:04.005Z", 7, 4]);
     await repo.setList(4, null);
@@ -129,8 +132,8 @@ describe("TaskRepository fake adapter protocol", () => {
     await expect(repo.create({ title: "  Buy milk  ", dueAt: "2026-10-04T10:02:03+08:00" }))
       .resolves.toMatchObject({ id: 4, title: "Buy milk" });
     expect(execute).toHaveBeenCalledWith(
-      expect.stringContaining("VALUES (?, ?, ?, ?, ?, ?)"),
-      ["Buy milk", null, "", "2026-10-04T02:02:03.000Z", "2026-10-04T02:03:04.005Z", "2026-10-04T02:03:04.005Z"],
+      expect.stringContaining("VALUES (?, ?, ?, ?, ?, ?, ?)"),
+      ["Buy milk", null, "", "2026-10-04T02:02:03.000Z", "none", "2026-10-04T02:03:04.005Z", "2026-10-04T02:03:04.005Z"],
     );
     expect(select).toHaveBeenCalledWith(expect.stringContaining("WHERE id = ?"), [4]);
     execute.mockResolvedValueOnce({ rowsAffected: 1, lastInsertId: 0 });

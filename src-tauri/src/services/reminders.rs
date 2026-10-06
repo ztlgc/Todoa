@@ -80,6 +80,13 @@ pub async fn update_status(
     }
     let mut tx = pool.begin().await.map_err(|_| "TASK_TRANSACTION_FAILED")?;
     let stamp = timestamp(now);
+    let was_todo: bool = sqlx::query_scalar::<_, String>("SELECT status FROM tasks WHERE id=?")
+        .bind(task_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| "TASK_STATUS_FAILED")?
+        .ok_or("TASK_NOT_FOUND")?
+        == "todo";
     let result = sqlx::query("UPDATE tasks SET completed_at=CASE WHEN status=? THEN completed_at WHEN ?='completed' THEN ? ELSE NULL END,updated_at=CASE WHEN status=? THEN updated_at ELSE ? END,status=? WHERE id=?")
         .bind(status).bind(status).bind(&stamp).bind(status).bind(&stamp).bind(status).bind(task_id).execute(&mut *tx).await.map_err(|_| "TASK_STATUS_FAILED")?;
     if result.rows_affected() != 1 {
@@ -91,6 +98,9 @@ pub async fn update_status(
             .execute(&mut *tx)
             .await
             .map_err(|_| "REMINDER_CANCEL_FAILED")?;
+        if was_todo {
+            crate::services::schedule::create_next(&mut tx, task_id, now).await?;
+        }
     }
     tx.commit().await.map_err(|_| "TASK_COMMIT_FAILED")
 }

@@ -9,6 +9,7 @@ import {
   parseTaskFilters,
   parseTaskId,
   parseTaskNotes,
+  parseTaskPriority,
   parseTaskStatus,
   parseTaskTime,
   parseTaskTitle,
@@ -27,7 +28,10 @@ export interface TaskRow {
   title: string;
   notes: string;
   status: string;
+  priority?: string;
   due_at: string | null;
+  repeat_rule?: string | null;
+  reminder_offsets?: string | null;
   completed_at: string | null;
   sort_order: number;
   created_at: string;
@@ -64,7 +68,10 @@ export function mapTaskRow(row: TaskRow): Task {
     title: parseTaskTitle(row.title),
     notes: parseTaskNotes(row.notes),
     status,
+    priority: parseTaskPriority(row.priority ?? "none"),
     dueAt: row.due_at === null ? null : parseTaskTime(row.due_at),
+    repeatRule: row.repeat_rule ?? null,
+    reminderOffsets: row.reminder_offsets ? JSON.parse(row.reminder_offsets) as number[] : [],
     completedAt,
     sortOrder: safeInteger(row.sort_order, "sort_order"),
     createdAt: parseTaskTime(row.created_at),
@@ -72,7 +79,7 @@ export function mapTaskRow(row: TaskRow): Task {
   };
 }
 
-const TASK_COLUMNS = "id, list_id, title, notes, status, due_at, completed_at, sort_order, created_at, updated_at";
+const TASK_COLUMNS = "id, list_id, title, notes, status, priority, due_at, repeat_rule, reminder_offsets, completed_at, sort_order, created_at, updated_at";
 
 export class TaskRepository {
   constructor(
@@ -121,9 +128,22 @@ export class TaskRepository {
   async update(id: number, input: UpdateTaskInput): Promise<Task> {
     const taskId = parseTaskId(id);
     const parsed = parseUpdateTaskInput(input);
+    if (parsed.dueAt !== undefined) {
+      try {
+        await this.command("update_task_schedule", { id: taskId, input: {
+          ...parsed, hasDue: true, hasList: parsed.listId !== undefined,
+        } });
+      } catch (cause) {
+        if (cause === "TASK_NOT_FOUND") throw new TaskNotFoundError(taskId);
+        throw cause;
+      }
+      const updated = await this.getById(taskId);
+      if (!updated) throw new TaskNotFoundError(taskId);
+      return updated;
+    }
     const fields: string[] = [];
     const values: SqlValue[] = [];
-    const columns = { title: "title", notes: "notes", dueAt: "due_at", listId: "list_id" } as const;
+    const columns = { title: "title", notes: "notes", dueAt: "due_at", listId: "list_id", priority: "priority" } as const;
     for (const key of Object.keys(columns) as (keyof typeof columns)[]) {
       const value = parsed[key];
       if (value !== undefined) { fields.push(`${columns[key]} = ?`); values.push(value); }
@@ -139,11 +159,17 @@ export class TaskRepository {
 
   async create(input: CreateTaskInput): Promise<Task> {
     const parsed = parseCreateTaskInput(input);
+    if (parsed.repeatRule || parsed.remindAt.length) {
+      const id = await this.command<number>("create_scheduled_task", { input: parsed });
+      const created = await this.getById(id);
+      if (!created) throw new Error("创建后未能读取任务");
+      return created;
+    }
     const now = this.timestamp();
     const db = await this.database();
     const result = await db.execute(
-      "INSERT INTO tasks (title, list_id, notes, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-      [parsed.title, parsed.listId, parsed.notes, parsed.dueAt, now, now],
+      "INSERT INTO tasks (title, list_id, notes, due_at, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [parsed.title, parsed.listId, parsed.notes, parsed.dueAt, parsed.priority, now, now],
     );
     if (result.rowsAffected !== 1) {
       throw new Error("任务创建未写入一行");

@@ -1,4 +1,8 @@
-use crate::{lifecycle::Lifecycle, reminder_scheduler::Scheduler, services::reminders};
+use crate::{
+    lifecycle::Lifecycle,
+    reminder_scheduler::Scheduler,
+    services::{reminders, schedule},
+};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State, WebviewWindow};
 fn source(window: &WebviewWindow) -> Result<(), &'static str> {
@@ -19,6 +23,33 @@ fn changed(window: &WebviewWindow) {
         s.changed();
     }
     let _ = window.app_handle().emit_to("main", "reminders-changed", ());
+}
+#[tauri::command]
+pub async fn create_scheduled_task(
+    window: WebviewWindow,
+    lifecycle: State<'_, Lifecycle>,
+    input: schedule::ScheduledInput,
+) -> Result<i64, &'static str> {
+    source(&window)?;
+    let _guard = lifecycle.write()?;
+    let pool = crate::db::shared_pool(window.app_handle()).await?;
+    let id = schedule::create(&pool, input, reminders::now()).await?;
+    changed(&window);
+    Ok(id)
+}
+#[tauri::command]
+pub async fn update_task_schedule(
+    window: WebviewWindow,
+    lifecycle: State<'_, Lifecycle>,
+    id: i64,
+    input: schedule::ScheduledUpdate,
+) -> Result<(), &'static str> {
+    source(&window)?;
+    let _guard = lifecycle.write()?;
+    let pool = crate::db::shared_pool(window.app_handle()).await?;
+    schedule::update(&pool, id, input, reminders::now()).await?;
+    changed(&window);
+    Ok(())
 }
 #[tauri::command]
 pub async fn create_reminder(

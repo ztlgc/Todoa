@@ -1,6 +1,7 @@
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
-use crate::{db, services};
+use crate::{db, reminder_scheduler::Scheduler, services};
+use std::sync::Arc;
 
 pub fn source(label: &str, expected: &str) -> Result<(), &'static str> {
     if label == expected {
@@ -54,6 +55,28 @@ pub async fn create_quick_task(
     let pool = db::shared_pool(&app).await?;
     let id = services::quick_add::create(&pool, &title).await?;
     // The INSERT is already committed. Failed notification must not cause a retry.
+    if app.emit_to("main", "task-created", id).is_err() {
+        eprintln!("QUICK_ADD_EVENT_FAILED");
+    }
+    Ok(id)
+}
+#[tauri::command]
+pub async fn create_quick_scheduled_task(
+    window: WebviewWindow,
+    app: AppHandle,
+    status: State<'_, db::BootState>,
+    input: services::schedule::ScheduledInput,
+) -> Result<i64, &'static str> {
+    source(window.label(), "quick-add")?;
+    if !matches!(*status, db::BootState::Ready) {
+        return Err("DATABASE_NOT_READY");
+    }
+    let _write = app.state::<crate::lifecycle::Lifecycle>().write()?;
+    let pool = db::shared_pool(&app).await?;
+    let id = services::schedule::create(&pool, input, services::reminders::now()).await?;
+    if let Some(scheduler) = app.try_state::<Arc<Scheduler>>() {
+        scheduler.changed();
+    }
     if app.emit_to("main", "task-created", id).is_err() {
         eprintln!("QUICK_ADD_EVENT_FAILED");
     }

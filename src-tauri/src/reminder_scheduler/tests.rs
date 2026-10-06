@@ -46,6 +46,14 @@ async fn fixture() -> (
         .execute(&pool)
         .await
         .unwrap();
+    sqlx::raw_sql(include_str!("../../migrations/0002_natural_schedule.sql"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::raw_sql(include_str!("../../migrations/0003_task_priority.sql"))
+        .execute(&pool)
+        .await
+        .unwrap();
     let task = crate::services::quick_add::create(&pool, "fresh title")
         .await
         .unwrap();
