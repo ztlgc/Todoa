@@ -663,4 +663,9 @@ STEP 17 状态：已验收（开发 Gate）。STEP 22 发布 Gate 尚未通过�
 
 ## 1.0.1 版本号（2026-10-07）
 
-- 前端 package.json、Tauri 配置、Rust 包及 Cargo.lock 中 Todoa 的版本号统一为 1.0.1。尚未重新生成 1.0.1 安装包。
+- 前端 package.json、Tauri 配置、Rust 包及 Cargo.lock 中 Todoa 的版本号统一为 1.0.1。
+
+## Todoa 1.0.1 发布（2026-10-07）
+
+- Windows x64 NSIS 正式构建成功；安装包为 `releases/v1.0.1/Todoa_1.0.1_x64-setup.exe`，校验值记录在同目录 `SHA256SUMS.txt`。已核对安装包 ProductVersion 为 1.0.1。
+- 本版没有重新运行测试套件；前端构建和本次 NSIS 打包均成功。安装后的实际操作、Windows 11、通知显示、登录自启、跨显示器 DPI 和代码签名仍未验收。
