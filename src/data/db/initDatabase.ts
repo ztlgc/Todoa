@@ -4,7 +4,7 @@ import type { SqlDatabase } from "./SqlDatabase";
 import { withMainWriteLeases } from "./mainWriteLease";
 
 const DATABASE_URL = "sqlite:todo.db";
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 let initialization: Promise<SqlDatabase> | undefined;
 

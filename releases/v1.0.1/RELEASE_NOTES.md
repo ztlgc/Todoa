@@ -1,5 +1,7 @@
 # Todoa 1.0.1
 
+> 此版本存在数据库启动检查错误，请使用 [Todoa 1.0.2](https://github.com/ztlgc/Todoa/releases/tag/v1.0.2)。无需清空数据库。
+
 发布日期：2026-10-07
 
 Todoa 是一款本地使用的 Windows 待办应用。任务、清单、标签和提醒保存在本机 SQLite 数据库中。

@@ -316,3 +316,46 @@ fn failed_migration_does_not_leave_partial_business_schema() {
         pool.close().await;
     });
 }
+
+#[test]
+fn upgrade_preserves_tasks_and_requires_complete_migration_history() {
+    tauri::async_runtime::block_on(async {
+        let (dir, pool) = database().await;
+        let path = dir.path().join("todo.db");
+        let mut previous = current_migrator();
+        previous.migrations = Cow::Owned(
+            previous
+                .migrations
+                .iter()
+                .filter(|migration| migration.version <= 3)
+                .cloned()
+                .collect(),
+        );
+        previous.run(&pool).await.unwrap();
+        sqlx::query(
+            "INSERT INTO tasks(id,title,created_at,updated_at) VALUES(1,'Existing task',?,?)",
+        )
+        .bind(TIME)
+        .bind(TIME)
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert_eq!(check_existing_database(&path).await, Ok(()));
+        install(&pool).await;
+        verify_pool(&pool, &path).await.unwrap();
+        let title: String = sqlx::query_scalar("SELECT title FROM tasks WHERE id=1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(title, "Existing task");
+        sqlx::query("DELETE FROM _sqlx_migrations WHERE version=4")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            verify_pool(&pool, &path).await,
+            Err("MIGRATION_HISTORY_MISSING")
+        );
+        pool.close().await;
+    });
+}

@@ -215,12 +215,13 @@ async fn verify_pool(pool: &SqlitePool, expected_path: &Path) -> Result<(), &'st
     }
 
     let migration_count: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM _sqlx_migrations WHERE version IN (1, 2, 3) AND success = 1",
+        "SELECT count(*) FROM _sqlx_migrations WHERE version BETWEEN 1 AND ? AND success = 1",
     )
+    .bind(SCHEMA_VERSION)
     .fetch_one(pool)
     .await
     .map_err(|_| "MIGRATION_HISTORY_MISSING")?;
-    if migration_count != 4 {
+    if migration_count != SCHEMA_VERSION {
         return Err("MIGRATION_HISTORY_MISSING");
     }
 
