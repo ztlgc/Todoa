@@ -4,6 +4,7 @@ import { QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLocalQueryClient } from "@/app/queryClient";
 import { listRepository } from "@/data/repositories/ListRepository";
+import { contentRepository } from "@/data/repositories/ContentRepository";
 import { taskRepository } from "@/data/repositories/TaskRepository";
 import type { TaskList } from "@/domain/list";
 import type { Task } from "@/domain/task";
@@ -14,6 +15,7 @@ import { listKeys } from "./queryKeys";
 vi.mock("@/data/repositories/ListRepository", () => ({ listRepository: { list: vi.fn(), create: vi.fn(), rename: vi.fn(), delete: vi.fn() } }));
 vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { list: vi.fn(), create: vi.fn(), updateStatus: vi.fn(), delete: vi.fn(), setList: vi.fn(), getById: vi.fn(), update: vi.fn() } }));
 vi.mock("@/data/repositories/TagRepository", () => ({ tagRepository: { list: async () => [], listTaskTags: async () => [] } }));
+vi.mock("@/data/repositories/ContentRepository", () => ({ contentRepository: { save: vi.fn() }, plainDocument: (text:string)=>({ type:"doc", content:[{type:"paragraph",content:text?[{type:"text",text}]:[]}] }) }));
 const time = "2026-10-04T00:00:00.000Z";
 const list: TaskList = { id: 1, name: "工作", sortOrder: 0, createdAt: time, updatedAt: time };
 const task: Task = { id: 1, listId: 1, title: "Work task", notes: "", status: "todo", dueAt: null, completedAt: null, sortOrder: 0, createdAt: time, updatedAt: time };
@@ -30,7 +32,7 @@ function change(label: string, value: string) { fireEvent.change(screen.getByLab
 function openCreateList() { fireEvent.click(screen.getByRole("button", { name: "新建清单" })); }
 function openListManagement(name: string) { fireEvent.click(screen.getByRole("button", { name: `管理清单：${name}` })); }
 beforeEach(() => {
-  vi.resetAllMocks(); onlineManager.setOnline(true);
+  vi.resetAllMocks(); localStorage.clear(); sessionStorage.clear(); vi.mocked(contentRepository.save).mockResolvedValue(1); onlineManager.setOnline(true);
   lists = [list]; tasks = [task];
   vi.mocked(listRepository.list).mockImplementation(async () => [...lists]);
   vi.mocked(listRepository.create).mockImplementation(async (name) => { const created = { ...list, id: 2, name }; lists = [...lists, created]; return created; });
@@ -47,7 +49,7 @@ afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear(
 it("separates task navigation from settings groups", async () => {
   setup();
   const rail = screen.getByRole("navigation", { name: "一级导航" });
-  expect(rail.querySelectorAll("button")).toHaveLength(3);
+  expect(rail.querySelectorAll("button")).toHaveLength(4);
   expect(screen.getByRole("navigation", { name: "任务视图" }).querySelectorAll("button")).toHaveLength(5);
   expect(await screen.findByRole("button", { name: "打开清单：工作" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "新建标签" })).toBeTruthy();
@@ -108,7 +110,7 @@ it("saves a dirty wide inspector before opening another task", async () => {
   const title = await screen.findByLabelText("任务标题");
   fireEvent.change(title, { target: { value: "Unsaved title" } });
   fireEvent.click(screen.getByRole("button", { name: "编辑任务：Second task" }));
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ title: "Unsaved title" })));
+  await waitFor(() => expect(contentRepository.save).toHaveBeenCalledWith(1, "Unsaved title", expect.any(Object), 0));
   await waitFor(() => expect((screen.getByLabelText("任务标题") as HTMLInputElement).value).toBe("Second task"));
 });
 
@@ -188,16 +190,12 @@ it("preserves drafts, membership and selection on failed create/rename/move/dele
   fireEvent.click(screen.getByRole("button", { name: "取消重命名" }));
   vi.mocked(taskRepository.update).mockRejectedValue(new Error("foreign key constraint"));
   fireEvent.click(screen.getByRole("button", { name: "编辑任务：Work task" }));
-  await screen.findByLabelText("所属清单"); change("所属清单", "inbox");
-  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
-  await screen.findByText("保存失败，草稿已保留。请重试。");
+  fireEvent.click(await screen.findByLabelText("所属清单"));
+  fireEvent.click(screen.getByRole("button", { name: "收件箱" }));
+  await screen.findByText("清单保存失败，请重试。");
   expect(tasks[0].listId).toBe(1);
-  expect((screen.getByLabelText("所属清单") as HTMLSelectElement).value).toBe("inbox");
-  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-  await screen.findByText("保存失败，草稿已保留。请重试。");
-  expect((screen.getByLabelText("所属清单") as HTMLSelectElement).value).toBe("inbox");
-  change("所属清单", "1");
-  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", {name:"关闭"}));
+  fireEvent.click(screen.getByRole("button", {name:"关闭任务详情"}));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   vi.mocked(listRepository.delete).mockRejectedValue(new Error("locked"));
   fireEvent.click(screen.getByRole("button", { name: "删除清单" })); fireEvent.click(screen.getByRole("button", { name: "确认删除清单" }));
@@ -236,7 +234,9 @@ it("uses a real dialog to keep or explicitly discard new task input before chang
 
 async function move(target: string) {
   fireEvent.click(screen.getByRole("button", { name: "编辑任务：Work task" }));
-  await screen.findByLabelText("所属清单"); change("所属清单", target);
-  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
+  fireEvent.click(await screen.findByLabelText("所属清单"));
+  fireEvent.click(screen.getByRole("button", { name: target === "inbox" ? "收件箱" : "工作" }));
+  await waitFor(() => expect(screen.queryByRole("dialog", {name:"所属清单"})).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 }

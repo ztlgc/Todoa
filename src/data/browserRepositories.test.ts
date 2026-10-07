@@ -4,6 +4,21 @@ import { browserTaskRepository, browserReminderRepository } from "./browserRepos
 
 afterEach(() => vi.useRealTimers());
 
+it("keeps date-only recurrence and rich content when generating the next occurrence", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 9, 7, 9));
+  const task = await browserTaskRepository.create({title:"全天重复",notes:"旧备注"});
+  await browserTaskRepository.update(task.id,{dueAt:null,dueDate:"2026-10-08",repeatRule:"day:1",reminderOffsets:[]});
+  task.contentJson = JSON.stringify({type:"doc",content:[{type:"paragraph",content:[{type:"text",text:"格式正文",marks:[{type:"bold"}]}]}]});
+  const before = (await browserTaskRepository.list()).length;
+  await browserTaskRepository.updateStatus(task.id,"completed");
+  const next=(await browserTaskRepository.list({status:"todo"})).find(item=>item.title===task.title)!;
+  expect(next).toMatchObject({dueAt:null,dueDate:"2026-10-09",contentJson:task.contentJson,contentRevision:0});
+  expect(await browserReminderRepository.list(next.id)).toEqual([]);
+  await browserTaskRepository.updateStatus(task.id,"completed");
+  expect((await browserTaskRepository.list()).length).toBe(before+1);
+});
+
 it("creates the reported daily reminder and retains the reminder on the next occurrence", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(2026, 9, 7, 9));
@@ -12,7 +27,7 @@ it("creates the reported daily reminder and retains the reminder on the next occ
   expect(task.repeatRule).toBe("day:1");
   expect(await browserReminderRepository.list(task.id)).toMatchObject([{ remindAt: task.dueAt }]);
   await browserTaskRepository.updateStatus(task.id, "completed");
-  const next = (await browserTaskRepository.list({ status: "todo" })).find(item => item.id !== task.id)!;
+  const next = (await browserTaskRepository.list({ status: "todo" })).find(item => item.id !== task.id && item.title === task.title)!;
   expect(new Date(next.dueAt!).getDate()).toBe(9);
   expect(new Date(next.dueAt!).getHours()).toBe(11);
   expect(await browserReminderRepository.list(next.id)).toMatchObject([{ remindAt: next.dueAt }]);

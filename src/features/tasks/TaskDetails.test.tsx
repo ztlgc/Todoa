@@ -1,122 +1,271 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLocalQueryClient } from "@/app/queryClient";
 import { taskRepository } from "@/data/repositories/TaskRepository";
-import type { Task } from "@/domain/task";
-import { toLocalInput } from "@/domain/taskDates";
+import { contentRepository } from "@/data/repositories/ContentRepository";
 import { TaskDetails } from "./TaskDetails";
-
-vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { getById: vi.fn(), update: vi.fn(), updateStatus: vi.fn(), trash: vi.fn(), delete: vi.fn() } }));
-vi.mock("@/features/tags/TaskTags", () => ({ TaskTags: () => <p>标签入口</p> }));
-vi.mock("@/features/reminders/TaskReminders", () => ({ TaskReminders: () => <p>提醒入口</p> }));
-const task: Task = { id: 1, listId: null, title: "原始标题", notes: "原始备注", dueAt: null, status: "todo", completedAt: null, sortOrder: 0, createdAt: "2026-10-04T00:00:00.000Z", updatedAt: "2026-10-04T00:00:00.000Z" };
+import type { Task } from "@/domain/task";
+vi.mock("@/data/repositories/TaskRepository", () => ({
+  taskRepository: {
+    getById: vi.fn(),
+    update: vi.fn(),
+    updateStatus: vi.fn(),
+    trash: vi.fn(),
+  },
+}));
+vi.mock("@/data/repositories/ContentRepository", () => ({
+  contentRepository: { save: vi.fn() },
+  plainDocument: (text: string) => ({
+    type: "doc",
+    content: [
+      { type: "paragraph", content: text ? [{ type: "text", text }] : [] },
+    ],
+  }),
+}));
+vi.mock("./TaskContentEditor", () => ({
+  TaskContentEditor: ({
+    initial,
+    onChange,
+    onComposition,
+  }: {
+    initial: { content: { content: { text: string }[] }[] };
+    onChange: (doc: unknown) => void;
+    onComposition: (v: boolean) => void;
+  }) => (
+    <textarea
+      aria-label="任务内容"
+      defaultValue={initial.content[0]?.content?.[0]?.text ?? ""}
+      onCompositionStart={() => onComposition(true)}
+      onCompositionEnd={() => onComposition(false)}
+      onChange={(e) =>
+        onChange({
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: e.target.value }],
+            },
+          ],
+        })
+      }
+    />
+  ),
+}));
+vi.mock("@/features/tags/TaskTags", () => ({
+  TaskTags: () => <p>标签管理</p>,
+}));
+vi.mock("@/features/reminders/TaskReminders", () => ({
+  TaskReminders: () => <p>独立提醒管理</p>,
+}));
+const task: Task = {
+  id: 1,
+  listId: null,
+  title: "原始标题",
+  notes: "原始内容",
+  dueAt: null,
+  status: "todo",
+  completedAt: null,
+  sortOrder: 0,
+  createdAt: "2026-10-04T00:00:00.000Z",
+  updatedAt: "2026-10-04T00:00:00.000Z",
+};
 let client: ReturnType<typeof createLocalQueryClient>;
-beforeEach(() => { vi.resetAllMocks(); vi.mocked(taskRepository.getById).mockResolvedValue(task); client = createLocalQueryClient(); });
-afterEach(() => { cleanup(); client.clear(); document.querySelectorAll("[data-test-return]").forEach(element => element.remove()); Reflect.deleteProperty(window, "matchMedia"); });
 function setup() {
-  const returnTo = document.createElement("button"); returnTo.textContent = "返回任务"; returnTo.dataset.testReturn = "true"; document.body.append(returnTo);
+  client = createLocalQueryClient();
   const closed = vi.fn();
-  render(<QueryClientProvider client={client}><TaskDetails id={1} lists={[]} listsUnavailable={false} taskTags={[]} tags={[]} tagsUnavailable={false} returnTo={returnTo} onClosed={closed} /></QueryClientProvider>);
-  return { returnTo, closed };
+  render(
+    <QueryClientProvider client={client}>
+      <TaskDetails
+        id={1}
+        lists={[
+          {
+            id: 2,
+            name: "工作",
+            sortOrder: 0,
+            createdAt: task.createdAt,
+            updatedAt: task.updatedAt,
+          },
+        ]}
+        listsUnavailable={false}
+        tags={[]}
+        taskTags={[]}
+        tagsUnavailable={false}
+        returnTo={null}
+        onClosed={closed}
+      />
+    </QueryClientProvider>,
+  );
+  return closed;
 }
-it("saves a dirty wide inspector before an outside click continues", async () => {
-  Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }) });
-  const { closed, returnTo } = setup();
-  vi.mocked(taskRepository.update).mockResolvedValue({ ...task, title: "自动保存标题" });
-  const title = await screen.findByLabelText("任务标题");
-  expect(screen.getByRole("complementary", { name: "任务详情" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "原始标题" })).toBeTruthy();
-  expect(screen.queryByRole("dialog")).toBeNull();
-  fireEvent.change(title, { target: { value: "自动保存标题" } });
-  expect(screen.getByRole("heading", { name: "自动保存标题" })).toBeTruthy();
-  const outsideClick = vi.fn(); returnTo.addEventListener("click", outsideClick);
-  fireEvent.click(returnTo);
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ title: "自动保存标题" })));
-  await waitFor(() => expect(closed).toHaveBeenCalledOnce());
-  await waitFor(() => expect(outsideClick).toHaveBeenCalledOnce());
+beforeEach(() => {
+  vi.resetAllMocks();
+  localStorage.clear();
+  sessionStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+  vi.mocked(taskRepository.getById).mockResolvedValue(task);
+  vi.mocked(contentRepository.save).mockResolvedValue(1);
+  vi.mocked(taskRepository.update).mockResolvedValue(task);
 });
-it("offers status and move-to-trash actions in the inspector", async () => {
-  vi.mocked(taskRepository.updateStatus).mockResolvedValue();
-  vi.mocked(taskRepository.trash).mockResolvedValue();
-  const { closed } = setup();
-  fireEvent.click(await screen.findByRole("checkbox", { name: "完成任务" }));
-  await waitFor(() => expect(taskRepository.updateStatus).toHaveBeenCalledWith(1, "completed"));
-  fireEvent.click(screen.getByRole("button", { name: "移入回收站" }));
-  await waitFor(() => expect(taskRepository.trash).toHaveBeenCalledWith(1));
-  expect(taskRepository.delete).not.toHaveBeenCalled();
-  await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+afterEach(() => {
+  cleanup();
+  client?.clear();
 });
-it("preserves drafts on failure/refetch, guards IME and duplicate submissions, traps/returns focus", async () => {
-  const { returnTo, closed } = setup(); const title = await screen.findByLabelText("任务标题");
-  await waitFor(() => expect(document.activeElement).toBe(title));
-  fireEvent.change(title, { target: { value: "中文草稿" } });
-  fireEvent.change(screen.getByLabelText("备注"), { target: { value: "多行\n纯文本" } });
-  fireEvent.compositionStart(title); fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
-  expect(taskRepository.update).not.toHaveBeenCalled(); fireEvent.compositionEnd(title);
-  let fail!: (e: Error) => void;
-  vi.mocked(taskRepository.update).mockReturnValue(new Promise((_ok, reject) => { fail = reject; }));
-  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" })); fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledTimes(1));
-  await act(async () => { fail(new Error("database locked")); });
-  await screen.findByText("保存失败，草稿已保留。请重试。");
-  await act(async () => { await client.refetchQueries({ type: "active" }); });
-  expect((title as HTMLInputElement).value).toBe("中文草稿"); expect((screen.getByLabelText("备注") as HTMLTextAreaElement).value).toBe("多行\n纯文本");
-  vi.mocked(taskRepository.update).mockRejectedValueOnce(new Error("database locked"));
-  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+it("saves title and content on close while retaining the inspector after normal saves", async () => {
+  const closed = setup();
+  fireEvent.change(await screen.findByLabelText("任务标题"), {
+    target: { value: "新标题" },
+  });
+  fireEvent.change(screen.getByLabelText("任务内容"), {
+    target: { value: "新内容" },
+  });
+  fireEvent.click(screen.getByLabelText("关闭任务详情"));
+  await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+  expect(contentRepository.save).toHaveBeenCalledWith(
+    1,
+    "新标题",
+    {
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "新内容" }] },
+      ],
+    },
+    0,
+  );
+});
+it("preserves drafts and blocks close after save failures, then retries", async () => {
+  vi.mocked(contentRepository.save).mockRejectedValueOnce(new Error("locked"));
+  const closed = setup();
+  fireEvent.change(await screen.findByLabelText("任务标题"), {
+    target: { value: "草稿" },
+  });
+  fireEvent.click(screen.getByLabelText("关闭任务详情"));
   await screen.findByText("保存失败，草稿已保留。请重试。");
   expect(closed).not.toHaveBeenCalled();
-  expect((title as HTMLInputElement).value).toBe("中文草稿");
-  vi.mocked(taskRepository.update).mockResolvedValue({ ...task, title: "中文草稿", notes: "多行\n纯文本" });
-  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  await waitFor(() => expect(document.activeElement).toBe(returnTo));
-  returnTo.remove();
+  expect(localStorage.getItem("todoa-content-draft-1")).toContain("草稿");
+  fireEvent.click(screen.getByRole("button", { name: "重试保存" }));
+  await waitFor(() => expect(contentRepository.save).toHaveBeenCalledTimes(2));
+  expect(closed).not.toHaveBeenCalled();
 });
-it("saves validated task fields and list together, with explicit date clearing", async () => {
-  vi.mocked(taskRepository.getById).mockResolvedValue({ ...task, dueAt: "2026-10-05T00:00:00.123Z" });
-  vi.mocked(taskRepository.update).mockResolvedValue(task); setup();
-  await screen.findByLabelText("任务标题"); fireEvent.click(screen.getByRole("button", { name: "清空截止时间" }));
-  fireEvent.change(screen.getByLabelText("任务标题"), { target: { value: "  新标题  " } });
-  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, { title: "新标题", notes: "原始备注", dueAt: null, listId: null, priority: "none" }));
-});
-it("edits and saves priority with the task", async () => {
-  vi.mocked(taskRepository.update).mockResolvedValue({ ...task, priority: "high" });
+it("does not save during Chinese composition", async () => {
   setup();
-  const select = await screen.findByLabelText("优先级") as HTMLSelectElement;
-  expect(select.value).toBe("none");
-  fireEvent.change(select, { target: { value: "high" } });
-  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ priority: "high" })));
+  const title = await screen.findByLabelText("任务标题");
+  fireEvent.compositionStart(title);
+  fireEvent.change(title, { target: { value: "中文" } });
+  fireEvent.click(screen.getByLabelText("关闭任务详情"));
+  expect(contentRepository.save).not.toHaveBeenCalled();
+  fireEvent.compositionEnd(title);
+  await waitFor(() => expect(contentRepository.save).toHaveBeenCalledOnce());
 });
-it("shows minute precision, opens the picker on click, and preserves untouched stored seconds", async () => {
-  const dueAt = "2026-10-05T00:00:37.123Z";
-  vi.mocked(taskRepository.getById).mockResolvedValue({ ...task, dueAt });
-  vi.mocked(taskRepository.update).mockResolvedValue({ ...task, title: "改名", dueAt });
-  setup();
-  const due = await screen.findByLabelText("截止日期与时间（本地时间）") as HTMLInputElement;
-  expect(due.value).toBe(toLocalInput(dueAt).slice(0, 16));
-  expect(due.step).toBe("60");
-  const showPicker = vi.fn(); due.showPicker = showPicker;
-  fireEvent.click(due);
-  expect(showPicker).toHaveBeenCalledOnce();
-  fireEvent.change(screen.getByLabelText("任务标题"), { target: { value: "改名" } });
-  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ title: "改名", dueAt })));
+it("serializes saves when new edits arrive during an in-flight write", async () => {
+  let resolve!: (v: number) => void;
+  vi.mocked(contentRepository.save)
+    .mockReturnValueOnce(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    )
+    .mockResolvedValue(2);
+  const closed = setup();
+  const title = await screen.findByLabelText("任务标题");
+  fireEvent.change(title, { target: { value: "第一版" } });
+  fireEvent.click(screen.getByLabelText("关闭任务详情"));
+  await waitFor(() => expect(contentRepository.save).toHaveBeenCalledOnce());
+  fireEvent.change(title, { target: { value: "第二版" } });
+  await act(async () => resolve(1));
+  await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+  expect(contentRepository.save).toHaveBeenLastCalledWith(
+    1,
+    "第二版",
+    expect.any(Object),
+    1,
+  );
 });
-
-it("clears recurrence while preserving the exact deadline", async () => {
-  const repeating = { ...task, dueAt: "2026-10-08T07:00:00.123Z", repeatRule: "day:2" };
-  vi.mocked(taskRepository.getById).mockResolvedValue(repeating);
-  vi.mocked(taskRepository.update).mockResolvedValue({ ...repeating, repeatRule: null });
+it("offers explicit recovery for a persisted draft", async () => {
+  localStorage.setItem(
+    "todoa-content-draft-1",
+    JSON.stringify({
+      title: "恢复标题",
+      doc: { type: "doc", content: [{ type: "paragraph" }] },
+    }),
+  );
   setup();
-  const clear = await screen.findByRole("button", { name: "清除重复" });
-  expect(screen.getByText("重复：每2天")).toBeTruthy();
-  fireEvent.click(clear);
-  expect(screen.getByText("重复：无")).toBeTruthy();
-  expect((screen.getByLabelText("截止日期与时间（本地时间）") as HTMLInputElement).value).toBe(toLocalInput(repeating.dueAt).slice(0, 16));
-  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ dueAt: repeating.dueAt, repeatRule: null })));
+  await screen.findByText("草稿标题：恢复标题");
+  expect((screen.getByLabelText("任务标题") as HTMLTextAreaElement).value).toBe(
+    "原始标题",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "恢复草稿" }));
+  expect((screen.getByLabelText("任务标题") as HTMLTextAreaElement).value).toBe(
+    "恢复标题",
+  );
+});
+it("configures date-only recurrence in one submit and cancels without writes", async () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dueDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+  setup();
+  fireEvent.click(await screen.findByLabelText("日期与提醒"));
+  fireEvent.click(screen.getByRole("button", { name: "明天" }));
+  fireEvent.change(screen.getByLabelText("重复规则"), {
+    target: { value: "day:1" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+  expect(taskRepository.update).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByLabelText("日期与提醒"));
+  fireEvent.click(screen.getByRole("button", { name: dueDate }));
+  fireEvent.change(screen.getByLabelText("重复规则"), {
+    target: { value: "day:1" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "确定" }));
+  await waitFor(() =>
+    expect(taskRepository.update).toHaveBeenCalledWith(1, {
+      dueAt: null,
+      dueDate,
+      repeatRule: "day:1",
+      reminderOffsets: [],
+    }),
+  );
+});
+it("preserves exact existing seconds when the schedule is unchanged", async () => {
+  const due = "2027-10-08T07:00:12.345Z";
+  vi.mocked(taskRepository.getById).mockResolvedValue({ ...task, dueAt: due });
+  setup();
+  fireEvent.click(await screen.findByLabelText("日期与提醒"));
+  fireEvent.click(screen.getByRole("button", { name: "确定" }));
+  await waitFor(() =>
+    expect(taskRepository.update).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ dueAt: due }),
+    ),
+  );
+});
+it("moves deletion to the more menu and flushes content before completion", async () => {
+  const closed = setup();
+  const title = await screen.findByLabelText("任务标题");
+  expect(screen.queryByRole("button", { name: "移入回收站" })).toBeNull();
+  fireEvent.change(title, { target: { value: "保存再完成" } });
+  fireEvent.click(screen.getByRole("checkbox", { name: "完成任务" }));
+  await waitFor(() =>
+    expect(taskRepository.updateStatus).toHaveBeenCalledWith(1, "completed"),
+  );
+  expect(contentRepository.save).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByLabelText("更多任务操作"));
+  fireEvent.click(screen.getByRole("button", { name: "移入回收站" }));
+  await waitFor(() => expect(taskRepository.trash).toHaveBeenCalledWith(1));
+  expect(closed).toHaveBeenCalledOnce();
 });

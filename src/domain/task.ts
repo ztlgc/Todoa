@@ -16,6 +16,9 @@ export interface Task {
   listId: number | null;
   title: string;
   notes: string;
+  contentJson?: string | null;
+  contentRevision?: number;
+  dueDate?: string | null;
   status: TaskStatus;
   priority?: TaskPriority;
   dueAt: string | null;
@@ -40,7 +43,9 @@ export interface CreateTaskInput {
 }
 
 export interface UpdateTaskInput {
-  repeatRule?: null;
+  repeatRule?: string | null;
+  dueDate?: string | null;
+  reminderOffsets?: number[];
   listId?: number | null;
   title?: string;
   notes?: string;
@@ -166,8 +171,16 @@ export function parseUpdateTaskInput(value: UpdateTaskInput): UpdateTaskInput {
   if (value.dueAt !== undefined) result.dueAt = value.dueAt === null ? null : parseTaskTime(value.dueAt);
   if (value.priority !== undefined) result.priority = parseTaskPriority(value.priority);
   if (value.repeatRule !== undefined) {
-    if (value.repeatRule !== null) throw new TaskValidationError("仅支持清除重复规则");
-    result.repeatRule = null;
+    if (value.repeatRule !== null) parseCreateTaskInput({ title: "验证", dueAt: "2026-01-01T00:00:00.000Z", repeatRule: value.repeatRule });
+    result.repeatRule = value.repeatRule;
+  }
+  if (value.dueDate !== undefined) {
+    if (value.dueDate !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(value.dueDate) || new Date(value.dueDate+"T12:00:00Z").toISOString().slice(0,10) !== value.dueDate)) throw new TaskValidationError("日期无效");
+    result.dueDate = value.dueDate;
+  }
+  if (value.reminderOffsets !== undefined) {
+    if (value.reminderOffsets.length > 16 || value.reminderOffsets.some(n => !Number.isSafeInteger(n) || n < 0 || n > 525600)) throw new TaskValidationError("提醒规则无效");
+    result.reminderOffsets = [...new Set(value.reminderOffsets)];
   }
   if (Object.keys(result).length === 0) {
     throw new TaskValidationError("没有可更新的任务字段");

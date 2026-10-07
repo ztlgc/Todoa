@@ -14,7 +14,7 @@ import { taskPriorities } from "./taskPriority";
 import { useCreateTask, useDeleteTask, useRestoreTask, useTasks, useTrashTask, useUpdateTask, useUpdateTaskStatus } from "./queries";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { fromLocalInput, toLocalInput } from "@/domain/taskDates";
+import { toLocalInput } from "@/domain/taskDates";
 import type { TaskPriority } from "@/domain/task";
 import { Check } from "lucide-react";
 
@@ -24,7 +24,6 @@ function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task:
   const [error, setError] = useState<string>();
   const [priorityOpen, setPriorityOpen] = useState(false);
   const writing = useRef(false);
-  const dueInput = useRef<HTMLInputElement>(null);
   const pending = update.isPending || remove.isPending;
   async function changeStatus(checked: boolean) {
     if (writing.current) return;
@@ -47,12 +46,6 @@ function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task:
     try { await updateTask.mutateAsync({ id: task.id, input: { priority: value } }); setPriorityOpen(false); }
     catch { setError("优先级保存失败，请重试。"); }
   }
-  async function saveDue(value: string) {
-    if (pending || updateTask.isPending) return;
-    setError(undefined);
-    try { await updateTask.mutateAsync({ id: task.id, input: { dueAt: fromLocalInput(value) } }); }
-    catch { setError("时间保存失败，请重试。"); }
-  }
   function openDetails(event: MouseEvent<HTMLLIElement>) {
     if ((event.target as HTMLElement).closest("button,input,[role=checkbox]")) return;
     onEdit(task, event.currentTarget.querySelector<HTMLButtonElement>("[data-task-title]"));
@@ -63,10 +56,10 @@ function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task:
       <div className="min-w-0 flex-1 space-y-1">
         <Button data-task-title variant="ghost" className={`h-auto w-full justify-start whitespace-normal break-all px-0 text-left ${task.status === "completed" ? "text-muted-foreground line-through" : "text-foreground"}`} aria-label={`编辑任务：${task.title}`} onClick={event => onEdit(task, event.currentTarget)} disabled={pending}>{task.title}</Button>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {task.dueDate && <span className="text-muted-foreground">{task.dueDate} · 全天{task.status === "todo" && task.dueDate < toLocalInput(now.toISOString()).slice(0,10) && <span className="ml-2 text-destructive">逾期</span>}</span>}
           {task.status === "completed" && <span className="text-muted-foreground">已完成</span>}
           <Button type="button" variant="ghost" size="sm" className={`h-7 shrink-0 gap-1 px-1.5 text-xs ${priority.color}`} aria-label={`更改优先级：${priority.label}`} disabled={pending || updateTask.isPending} onClick={() => setPriorityOpen(true)}><Flag aria-hidden="true" className="size-3.5" fill={priority.value === "none" ? "none" : "currentColor"} />{priority.label}</Button>
-          <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-1.5 text-xs text-muted-foreground" aria-label={task.dueAt ? `更改时间：${new Date(task.dueAt).toLocaleString()}` : "设置时间"} disabled={pending || updateTask.isPending} onClick={() => { const input = dueInput.current; if (!input) return; if (!input.value) { const next = new Date(); next.setSeconds(0, 0); input.value = toLocalInput(next.toISOString()).slice(0, 16); } try { input.showPicker?.(); } catch { input.focus(); input.click(); } }}>{task.dueAt ? <><time dateTime={task.dueAt}>{new Date(task.dueAt).toLocaleString()}</time>{task.status === "todo" && task.dueAt < now.toISOString() && <span className="ml-2 rounded bg-destructive/10 px-2 py-0.5 text-destructive">逾期</span>}</> : "设置时间"}</Button>
-          <input ref={dueInput} type="datetime-local" step="60" aria-label={`截止时间：${task.title}`} className="sr-only" value={toLocalInput(task.dueAt).slice(0, 16)} onChange={event => { if (event.target.value) void saveDue(event.target.value); }} />
+          {task.dueAt && <span className="shrink-0 text-muted-foreground"><time dateTime={task.dueAt}>{new Date(task.dueAt).toLocaleString()}</time>{task.status === "todo" && task.dueAt < now.toISOString() && <span className="ml-2 rounded bg-destructive/10 px-2 py-0.5 text-destructive">逾期</span>}</span>}
           {task.repeatRule && <span className="shrink-0 text-muted-foreground">重复：{repeatRuleLabel(task.repeatRule)}</span>}
         </div>
         {task.notes && <p className="line-clamp-2 break-all whitespace-pre-wrap text-sm text-muted-foreground">{task.notes}</p>}
@@ -86,7 +79,7 @@ export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable
   listId?: number | null; tagId?: number; name: string; lists?: TaskList[]; listsUnavailable?: boolean; tags?: Tag[]; taskTags?: TaskTag[]; tagsUnavailable?: boolean;
   dateFilters?: TaskFilters; now?: Date; onDraftChange?: (dirty: boolean, draft: string) => void; onBusyChange?: (busy: boolean) => void; onDetailDirtyChange?: (dirty: boolean) => void; initialDraft?: string;
 }) {
-  const tasks = useTasks(dateFilters ?? (tagId === undefined ? { listId } : { tagId })), create = useCreateTask();
+  const tasks = useTasks({ status: "todo", ...(dateFilters ?? (tagId === undefined ? { listId } : { tagId })) }), create = useCreateTask();
   const [draft, setDraft] = useState(initialDraft), [error, setError] = useState<string>();
   const [ignoreRecognition, setIgnoreRecognition] = useState(false);
   const [detail, setDetail] = useState<{ id: number; returnTo: HTMLElement | null }>();
@@ -109,9 +102,9 @@ export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable
   return <section aria-labelledby="inbox-heading" className={`space-y-6 ${detail ? "min-[1100px]:pr-[min(456px,38vw)]" : ""}`}>
     {switchConfirmation}
     <header className="space-y-2"><h1 id="inbox-heading" tabIndex={-1} className="break-all text-3xl font-semibold tracking-tight outline-none">{name}</h1><p className="text-sm text-muted-foreground">{dateFilters?.status === "completed" ? "显示收件箱和所有清单中已完成的任务。" : dateFilters ? "只显示未完成且有截止时间的任务 · 本地日期" : "记录待办，按自己的节奏完成。点击标题编辑详情。"}</p></header>
-    {canCreate ? <form aria-label="新增任务" onSubmit={event => void submit(event)} className="space-y-2 rounded-xl border border-border bg-card p-4">
+    {canCreate ? <form autoComplete="off" aria-label="新增任务" onSubmit={event => void submit(event)} className="space-y-2 rounded-xl border border-border bg-card p-4">
       <label htmlFor="task-title" className="sr-only">新任务</label>
-      <div className="flex flex-wrap gap-2"><Input id="task-title" placeholder="例如：明天下午3点开会" className="min-w-0 flex-1" value={draft} onChange={event => { setDraft(event.target.value); setIgnoreRecognition(false); onDraftChange?.(!!event.target.value, event.target.value); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if (event.key === "Enter" && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) event.preventDefault(); }} disabled={create.isPending || unavailable} aria-invalid={!!error} aria-describedby={error ? "create-error" : undefined} /><Button type="submit" disabled={create.isPending || unavailable}>{create.isPending ? "正在添加…" : "添加任务"}</Button></div>
+      <div className="flex flex-wrap gap-2"><Input autoComplete="off" id="task-title" placeholder="例如：明天下午3点开会" className="min-w-0 flex-1" value={draft} onChange={event => { setDraft(event.target.value); setIgnoreRecognition(false); onDraftChange?.(!!event.target.value, event.target.value); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if (event.key === "Enter" && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) event.preventDefault(); }} disabled={create.isPending || unavailable} aria-invalid={!!error} aria-describedby={error ? "create-error" : undefined} /><Button type="submit" disabled={create.isPending || unavailable}>{create.isPending ? "正在添加…" : "添加任务"}</Button></div>
       <TaskInputFeedback draft={draft} parsed={parsed} ignoreRecognition={ignoreRecognition} onIgnoreChange={setIgnoreRecognition} />
       {error && <p id="create-error" role="alert" className="text-sm text-destructive">{error}</p>}
     </form> : dateFilters?.status === "completed" ? null : <p className="text-sm text-muted-foreground">请在收件箱或清单中新建任务。</p>}

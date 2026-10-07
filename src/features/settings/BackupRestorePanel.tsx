@@ -30,13 +30,13 @@ export function BackupRestorePanel() {
   }
   return <section aria-labelledby="backup-heading" className="my-6 rounded-lg border p-4">
     <h2 id="backup-heading" className="font-semibold">备份与恢复</h2>
-    <p className="my-2 text-sm text-muted-foreground">备份包含全部任务、清单、标签、提醒和数据库设置，未经加密。窗口状态和系统开机启动状态不在备份中。</p>
+    <p className="my-2 text-sm text-muted-foreground">备份包含全部任务、清单、标签、提醒、日记与阶段总结和数据库设置，未经加密。窗口状态和系统开机启动状态不在备份中。</p>
     <div className="flex flex-wrap gap-2"><Button disabled={busy || isBrowserDebug()} onClick={() => void run(false)}>备份数据</Button><Button ref={restoreButton} variant="outline" disabled={busy || isBrowserDebug()} onClick={() => { setMessage(undefined); setConfirming(true); }}>恢复备份</Button></div>
     {isBrowserDebug() && <p className="mt-2 text-sm text-muted-foreground">浏览器调试使用临时数据，备份与恢复需在桌面应用中操作。</p>}
     <Dialog open={confirming} onOpenChange={value => { if (!busy) setConfirming(value); }}>
       <DialogContent role="alertdialog" showCloseButton={false} initialFocus={cancelButton} finalFocus={restoreButton} className="max-h-[90dvh] overflow-y-auto">
       <DialogTitle id="restore-title">替换全部数据库内容？</DialogTitle>
-      <DialogDescription id="restore-warning">恢复会替换现有任务、清单、标签、提醒和数据库设置。应用会关闭并重新启动。请先备份当前数据；成功后也会保留恢复前快照。</DialogDescription>
+      <DialogDescription id="restore-warning">恢复会替换现有任务、清单、标签、提醒、日记与阶段总结和数据库设置。应用会关闭并重新启动。请先备份当前数据；成功后也会保留恢复前快照。</DialogDescription>
       {message && <p role="status" className="break-all text-sm">{message}</p>}
       <div className="flex flex-wrap gap-2"><Button ref={cancelButton} variant="outline" disabled={busy} onClick={() => { setConfirming(false); restoreButton.current?.focus(); }}>取消恢复</Button><Button disabled={busy} onClick={() => void run(true)}>确认替换并选择备份</Button></div>
     </DialogContent></Dialog>

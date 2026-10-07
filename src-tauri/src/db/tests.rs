@@ -54,6 +54,20 @@ fn current_migrator() -> Migrator {
                 include_str!("../../migrations/0004_task_trash.sql").into(),
                 false,
             ),
+            SqlxMigration::new(
+                5,
+                "journal".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0005_journal.sql").into(),
+                false,
+            ),
+            SqlxMigration::new(
+                6,
+                "task_content".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0006_task_content.sql").into(),
+                false,
+            ),
         ]),
         ..Migrator::DEFAULT
     }
@@ -270,7 +284,7 @@ fn preflight_rejects_unknown_future_and_bad_identity() {
         pool.execute("PRAGMA application_id=0x57544431")
             .await
             .unwrap();
-        pool.execute("PRAGMA user_version=5").await.unwrap();
+        pool.execute("PRAGMA user_version=7").await.unwrap();
         assert_eq!(check_existing_database(&path).await, Err("FUTURE_SCHEMA"));
         pool.execute("PRAGMA user_version=0").await.unwrap();
         assert_eq!(
@@ -327,7 +341,7 @@ fn upgrade_preserves_tasks_and_requires_complete_migration_history() {
             previous
                 .migrations
                 .iter()
-                .filter(|migration| migration.version <= 3)
+                .filter(|migration| migration.version <= 4)
                 .cloned()
                 .collect(),
         );
@@ -348,7 +362,7 @@ fn upgrade_preserves_tasks_and_requires_complete_migration_history() {
             .await
             .unwrap();
         assert_eq!(title, "Existing task");
-        sqlx::query("DELETE FROM _sqlx_migrations WHERE version=4")
+        sqlx::query("DELETE FROM _sqlx_migrations WHERE version=5")
             .execute(&pool)
             .await
             .unwrap();

@@ -8,6 +8,105 @@ use tempfile::TempDir;
 const TIME: &str = "2026-10-04T01:02:03.004Z";
 
 #[test]
+fn journal_snapshots_survive_task_deletion_backup_and_restore() {
+    tauri::async_runtime::block_on(async {
+        let source = TempDir::new().unwrap();
+        let target_root = TempDir::new().unwrap();
+        let pool = database(source.path(), "Original task").await;
+        let previous = database(target_root.path(), "Previous data").await;
+        previous.close().await;
+        sqlx::query("DELETE FROM tasks WHERE id=1")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let target = source.path().join("journal-backup.db");
+        backup(&pool, source.path(), &target, false).await.unwrap();
+        validate(&target).await.unwrap();
+        stage(target_root.path(), &target).await.unwrap();
+        before_boot(target_root.path()).await.unwrap();
+        let mut restored = SqliteConnection::connect_with(
+            &SqliteConnectOptions::new().filename(target_root.path().join("todo.db")),
+        )
+        .await
+        .unwrap();
+        let snapshot: String =
+            sqlx::query_scalar("SELECT items_json FROM journal_records WHERE kind='day'")
+                .fetch_one(&mut restored)
+                .await
+                .unwrap();
+        assert!(snapshot.contains("历史标题"));
+        assert!(snapshot.contains("具体成果"));
+        let tasks: i64 = sqlx::query_scalar("SELECT count(*) FROM tasks")
+            .fetch_one(&mut restored)
+            .await
+            .unwrap();
+        assert_eq!(tasks, 0);
+        restored.close().await.unwrap();
+        commit(target_root.path()).await.unwrap();
+        pool.close().await;
+    });
+}
+
+#[test]
+fn schema_four_backup_is_still_accepted() {
+    tauri::async_runtime::block_on(async {
+        let root = TempDir::new().unwrap();
+        let pool = SqlitePoolOptions::new()
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(root.path().join("todo.db"))
+                    .create_if_missing(true),
+            )
+            .await
+            .unwrap();
+        let migrations = [
+            (
+                1,
+                "initial_schema",
+                include_str!("../../../migrations/0001_initial.sql"),
+            ),
+            (
+                2,
+                "natural_schedule",
+                include_str!("../../../migrations/0002_natural_schedule.sql"),
+            ),
+            (
+                3,
+                "task_priority",
+                include_str!("../../../migrations/0003_task_priority.sql"),
+            ),
+            (
+                4,
+                "task_trash",
+                include_str!("../../../migrations/0004_task_trash.sql"),
+            ),
+        ]
+        .into_iter()
+        .map(|(version, name, sql)| {
+            Migration::new(
+                version,
+                name.into(),
+                MigrationType::ReversibleUp,
+                sql.into(),
+                false,
+            )
+        })
+        .collect();
+        Migrator {
+            migrations: Cow::Owned(migrations),
+            ..Migrator::DEFAULT
+        }
+        .run(&pool)
+        .await
+        .unwrap();
+        let path = root.path().join("old-backup.db");
+        snapshot(&pool, &path).await.unwrap();
+        validate(&path).await.unwrap();
+        pool.close().await;
+    });
+}
+
+#[test]
 fn previous_schema_backup_remains_valid_for_migration_on_restore() {
     tauri::async_runtime::block_on(async {
         let mut connection = SqliteConnection::connect("sqlite::memory:").await.unwrap();
@@ -71,6 +170,20 @@ async fn database(root: &Path, title: &str) -> SqlitePool {
                 include_str!("../../../migrations/0004_task_trash.sql").into(),
                 false,
             ),
+            Migration::new(
+                5,
+                "journal".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0005_journal.sql").into(),
+                false,
+            ),
+            Migration::new(
+                6,
+                "task_content".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0006_task_content.sql").into(),
+                false,
+            ),
         ]),
         ..Migrator::DEFAULT
     }
@@ -114,6 +227,11 @@ async fn database(root: &Path, title: &str) -> SqlitePool {
         .execute(&pool)
         .await
         .unwrap();
+    sqlx::query("INSERT INTO journal_records(kind,period_start,period_end,title,body,items_json,created_at,updated_at) VALUES('day','2026-10-04','2026-10-04','工作记录','完成联调',?, ?, ?)")
+        .bind(r#"[{"id":"snapshot","title":"历史标题","taskId":1,"notes":"具体成果","theme":"项目A","important":true,"completedAt":null}]"#)
+        .bind(TIME)
+        .bind(TIME)
+        .execute(&pool).await.unwrap();
     pool
 }
 async fn title(path: &Path) -> String {
@@ -163,6 +281,7 @@ fn active_wal_snapshot_relations_and_concurrent_writer() {
             "task_tags",
             "reminders",
             "settings",
+            "journal_records",
         ] {
             let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
                 .fetch_one(&mut c)
@@ -184,7 +303,7 @@ fn rejects_corruption_identity_future_history_schema_foreign_keys_and_sidecars()
         snapshot(&pool, &pristine).await.unwrap();
         for (sql, expected) in [
             ("PRAGMA application_id=1", "BACKUP_ID_MISMATCH"),
-            ("PRAGMA user_version=5", "BACKUP_FUTURE_SCHEMA"),
+            ("PRAGMA user_version=7", "BACKUP_FUTURE_SCHEMA"),
             ("PRAGMA user_version=0", "BACKUP_UNSUPPORTED_SCHEMA"),
             ("DELETE FROM _sqlx_migrations", "BACKUP_MIGRATION_HISTORY"),
             (
@@ -467,5 +586,35 @@ fn real_process_crashes_before_after_every_group_move_and_during_rollback() {
             );
             assert!(!before_boot(dir.path()).await.unwrap());
         }
+    });
+}
+
+#[test]
+fn rich_content_images_revision_and_backup_round_trip() {
+    tauri::async_runtime::block_on(async {
+        let source=TempDir::new().unwrap(); let restored=TempDir::new().unwrap();
+        let pool=database(source.path(),"Original").await;
+        let asset=sqlx::query("INSERT INTO task_assets(mime,data) VALUES('image/png',?)").bind(vec![137u8,80,78,71,13,10,26,10]).execute(&pool).await.unwrap().last_insert_rowid();
+        sqlx::query("INSERT INTO task_asset_refs(task_id,asset_id) VALUES(1,?)").bind(asset).execute(&pool).await.unwrap();
+        let doc=serde_json::json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"重点内容","marks":[{"type":"bold"}]}]},{"type":"image","attrs":{"src":format!("todoa-asset:{asset}"),"alt":"本地图片"}}]}).to_string();
+        assert_eq!(crate::commands::content::save(&pool,1,"标题".into(),doc.clone(),0).await.unwrap(),1);
+        assert_eq!(crate::commands::content::save(&pool,1,"旧草稿".into(),doc.clone(),0).await,Err("CONTENT_CONFLICT"));
+        let missing=doc.replace(&format!("todoa-asset:{asset}"),"todoa-asset:999");
+        assert_eq!(crate::commands::content::save(&pool,1,"草稿".into(),missing,1).await,Err("IMAGE_NOT_FOUND"));
+        assert_eq!(sqlx::query_scalar::<_,String>("SELECT notes FROM tasks WHERE id=1").fetch_one(&pool).await.unwrap(),"重点内容");
+        let path=source.path().join("rich-backup.db"); backup(&pool,source.path(),&path,false).await.unwrap();validate(&path).await.unwrap();
+        let old=database(restored.path(),"Previous").await;old.close().await;
+        stage(restored.path(),&path).await.unwrap();before_boot(restored.path()).await.unwrap();
+        let read=SqlitePoolOptions::new().max_connections(1).connect_with(SqliteConnectOptions::new().filename(restored.path().join("todo.db"))).await.unwrap();
+        assert_eq!(sqlx::query_scalar::<_,String>("SELECT content_json FROM tasks WHERE id=1").fetch_one(&read).await.unwrap(),doc);
+        assert_eq!(sqlx::query_scalar::<_,Vec<u8>>("SELECT data FROM task_assets").fetch_one(&read).await.unwrap(),vec![137u8,80,78,71,13,10,26,10]);
+        sqlx::query("UPDATE tasks SET due_date='2027-10-22',repeat_rule='day:1' WHERE id=1").execute(&read).await.unwrap();
+        let mut tx=read.begin().await.unwrap();crate::services::schedule::create_next(&mut tx,1,crate::services::reminders::now()).await.unwrap();tx.commit().await.unwrap();
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM task_asset_refs").fetch_one(&read).await.unwrap(),2);
+        sqlx::query("DELETE FROM tasks WHERE id=1").execute(&read).await.unwrap();
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM task_assets").fetch_one(&read).await.unwrap(),1);
+        sqlx::query("DELETE FROM tasks").execute(&read).await.unwrap();
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM task_assets").fetch_one(&read).await.unwrap(),0);
+        read.close().await;pool.close().await;
     });
 }

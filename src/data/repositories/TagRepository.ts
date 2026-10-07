@@ -59,6 +59,18 @@ export class TagRepository {
     return mapTagRow(rows[0]);
   }
 
+  async rename(id: number, name: string): Promise<void> {
+    const tag = parseTagId(id), parsed = parseTagName(name);
+    const now = parseTaskTime(this.now().toISOString());
+    const result = await (await this.database()).execute("UPDATE OR IGNORE tags SET name = ?, updated_at = ? WHERE id = ?", [parsed, now, tag]);
+    if (result.rowsAffected === 0) {
+      const rows = await (await this.database()).select<TagRow[]>(`SELECT ${COLUMNS} FROM tags WHERE id = ?`, [tag]);
+      if (rows.length === 0) throw new TagNotFoundError(tag);
+      throw new TagConflictError(parsed);
+    }
+    if (result.rowsAffected !== 1) throw new Error("标签重命名影响了多行");
+  }
+
   async assign(taskId: number, tagId: number): Promise<void> {
     const task = parseTaskId(taskId);
     const tag = parseTagId(tagId);

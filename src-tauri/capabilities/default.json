@@ -18,6 +18,8 @@
     "sql:allow-execute",
     "main-reminders",
     "main-backup-restore",
+    "main-journal-export",
+    "main-task-content",
     "main-autostart"
   ]
 }

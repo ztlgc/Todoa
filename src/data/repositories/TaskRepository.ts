@@ -1,3 +1,4 @@
+import { compareTaskDates } from "@/domain/taskDates";
 import { invoke } from "@tauri-apps/api/core";
 import { isBrowserDebug } from "@/app/browserDebug";
 import { browserTaskRepository } from "@/data/browserRepositories";
@@ -27,6 +28,9 @@ export interface TaskRow {
   list_id: number | null;
   title: string;
   notes: string;
+  content_json?: string | null;
+  content_revision?: number;
+  due_date?: string | null;
   status: string;
   priority?: string;
   due_at: string | null;
@@ -68,6 +72,7 @@ export function mapTaskRow(row: TaskRow): Task {
     listId,
     title: parseTaskTitle(row.title),
     notes: parseTaskNotes(row.notes),
+    contentJson: row.content_json ?? null, contentRevision: row.content_revision ?? 0, dueDate: row.due_date ?? null,
     status,
     priority: parseTaskPriority(row.priority ?? "none"),
     dueAt: row.due_at === null ? null : parseTaskTime(row.due_at),
@@ -81,7 +86,7 @@ export function mapTaskRow(row: TaskRow): Task {
   };
 }
 
-const TASK_COLUMNS = "id, list_id, title, notes, status, priority, due_at, repeat_rule, reminder_offsets, completed_at, deleted_at, sort_order, created_at, updated_at";
+const TASK_COLUMNS = "content_json, content_revision, due_date, id, list_id, title, notes, status, priority, due_at, repeat_rule, reminder_offsets, completed_at, deleted_at, sort_order, created_at, updated_at";
 
 export class TaskRepository {
   constructor(
@@ -110,16 +115,20 @@ export class TaskRepository {
       binds.push(parsed.tagId);
     }
     if (parsed.dateRange) {
-      conditions.push("due_at >= ?");
+      const localDate = (utc: string) => { const d = new Date(utc); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+      conditions.push(parsed.dateRange.to ? "((due_at >= ? AND due_at < ?) OR (due_date >= ? AND due_date < ?))" : "(due_at >= ? OR due_date >= ?)");
       binds.push(parsed.dateRange.from);
-      if (parsed.dateRange.to) { conditions.push("due_at < ?"); binds.push(parsed.dateRange.to); }
+      if (parsed.dateRange.to) binds.push(parsed.dateRange.to);
+      binds.push(localDate(parsed.dateRange.from));
+      if (parsed.dateRange.to) binds.push(localDate(parsed.dateRange.to));
     }
     const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
     const rows = await (await this.database()).select<TaskRow[]>(
       `SELECT ${TASK_COLUMNS} FROM tasks${where} ORDER BY ${parsed.deleted ? "deleted_at DESC, " : parsed.dateView ? "due_at ASC, " : ""}sort_order ASC, id ASC`,
       binds,
     );
-    return rows.map(mapTaskRow);
+    const tasks = rows.map(mapTaskRow);
+    return parsed.dateView ? tasks.sort(compareTaskDates) : tasks;
   }
 
   async getById(id: number): Promise<Task | null> {
@@ -131,10 +140,10 @@ export class TaskRepository {
   async update(id: number, input: UpdateTaskInput): Promise<Task> {
     const taskId = parseTaskId(id);
     const parsed = parseUpdateTaskInput(input);
-    if (parsed.dueAt !== undefined || parsed.repeatRule === null) {
+    if (parsed.dueAt !== undefined || parsed.repeatRule !== undefined || parsed.dueDate !== undefined || parsed.reminderOffsets !== undefined) {
       try {
         await this.command("update_task_schedule", { id: taskId, input: {
-          ...parsed, hasDue: parsed.dueAt !== undefined, hasList: parsed.listId !== undefined,
+          ...parsed, hasDue: parsed.dueAt !== undefined, hasList: parsed.listId !== undefined, hasDate: parsed.dueDate !== undefined, hasRepeat: parsed.repeatRule !== undefined,
           ...(parsed.repeatRule === null ? { clearRepeat: true } : {}),
         } });
       } catch (cause) {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export type CalendarTask = { id: number; title: string; dueAt: string | null; status: "todo" | "completed" };
+export type CalendarTask = { id: number; title: string; dueAt: string | null; dueDate?: string | null; status: "todo" | "completed" };
 
 const weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 const dayKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -16,8 +16,8 @@ export function CalendarMonth({ tasks, onTaskClick }: { tasks: CalendarTask[]; o
   const dates = Array.from({ length: cells }, (_, index) => new Date(year, month, 1 - offset + index, 12));
   const grouped = new Map<string, CalendarTask[]>();
   for (const task of tasks) {
-    if (!task.dueAt) continue;
-    const due = new Date(task.dueAt);
+    if (!task.dueAt && !task.dueDate) continue;
+    const due = new Date(task.dueDate ? task.dueDate+"T12:00:00" : task.dueAt!);
     if (!Number.isFinite(due.getTime())) continue;
     const key = dayKey(due);
     grouped.set(key, [...(grouped.get(key) ?? []), task]);
@@ -45,7 +45,7 @@ export function CalendarMonth({ tasks, onTaskClick }: { tasks: CalendarTask[]; o
     </div>
     <section aria-label={`${selectedKey}任务`} className="space-y-3 rounded-xl border border-border bg-card p-4">
       <h3 className="font-semibold">{new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(selected)} · {selectedTasks.length} 项任务</h3>
-      {selectedTasks.length === 0 ? <p className="text-sm text-muted-foreground">这一天没有设置截止时间的任务。</p> : <ul className="divide-y divide-border">{selectedTasks.map((task) => <li key={task.id} className="flex items-center gap-3 py-2 text-sm"><span className="w-12 shrink-0 text-muted-foreground">{new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(task.dueAt!))}</span>{onTaskClick ? <button type="button" className={`min-w-0 flex-1 truncate text-left hover:underline ${task.status === "completed" ? "text-muted-foreground line-through" : ""}`} onClick={(event) => onTaskClick(task.id, event.currentTarget)}>{task.title}</button> : <span className={`min-w-0 flex-1 truncate ${task.status === "completed" ? "text-muted-foreground line-through" : ""}`}>{task.title}</span>}</li>)}</ul>}
+      {selectedTasks.length === 0 ? <p className="text-sm text-muted-foreground">这一天没有设置截止时间的任务。</p> : <ul className="divide-y divide-border">{selectedTasks.map((task) => <li key={task.id} className="flex items-center gap-3 py-2 text-sm"><span className="w-12 shrink-0 text-muted-foreground">{task.dueDate?"全天":new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(task.dueAt!))}</span>{onTaskClick ? <button type="button" className={`min-w-0 flex-1 truncate text-left hover:underline ${task.status === "completed" ? "text-muted-foreground line-through" : ""}`} onClick={(event) => onTaskClick(task.id, event.currentTarget)}>{task.title}</button> : <span className={`min-w-0 flex-1 truncate ${task.status === "completed" ? "text-muted-foreground line-through" : ""}`}>{task.title}</span>}</li>)}</ul>}
     </section>
   </div>;
 }

@@ -14,6 +14,11 @@ export function useCreateTag() {
   return useMutation({ mutationFn: (name: string) => tagRepository.create(name), networkMode: "always", retry: 0,
     onSuccess: () => invalidateTaskCaches(client) });
 }
+export function useRenameTag() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: ({ id, name }: { id: number; name: string }) => tagRepository.rename(id, name), networkMode: "always", retry: 0,
+    onSuccess: () => invalidateTaskCaches(client) });
+}
 export function useAssignTag() {
   const client = useQueryClient();
   return useMutation({ mutationFn: ({ taskId, tagId }: { taskId: number; tagId: number }) => tagRepository.assign(taskId, tagId), networkMode: "always", retry: 0,

@@ -259,14 +259,32 @@ async fn inspect(c: &mut SqliteConnection) -> Result<()> {
         include_str!("../../migrations/0004_task_trash.sql").into(),
         false,
     );
+    let journal = sqlx::migrate::Migration::new(
+        5,
+        "journal".into(),
+        sqlx::migrate::MigrationType::ReversibleUp,
+        include_str!("../../migrations/0005_journal.sql").into(),
+        false,
+    );
+    let content = sqlx::migrate::Migration::new(
+        6,
+        "task_content".into(),
+        sqlx::migrate::MigrationType::ReversibleUp,
+        include_str!("../../migrations/0006_task_content.sql").into(),
+        false,
+    );
     let expected = if version == 1 {
         vec![initial]
     } else if version == 2 {
         vec![initial, schedule]
     } else if version == 3 {
         vec![initial, schedule, priority]
-    } else {
+    } else if version == 4 {
         vec![initial, schedule, priority, trash]
+    } else if version == 5 {
+        vec![initial, schedule, priority, trash, journal]
+    } else {
+        vec![initial, schedule, priority, trash, journal, content]
     };
     if history.len() != expected.len()
         || history.iter().zip(&expected).any(|(row, migration)| {

@@ -1,4 +1,9 @@
-import { parseTaskTime, TaskValidationError } from "./task";
+import { parseTaskTime, TaskValidationError, type Task } from "./task";
+
+export function compareTaskDates(a: Task, b: Task) {
+  const time = (task: Task) => task.dueDate ? new Date(`${task.dueDate}T00:00:00`).getTime() : task.dueAt ? Date.parse(task.dueAt) : Infinity;
+  return time(a) - time(b) || a.sortOrder - b.sortOrder || a.id - b.id;
+}
 
 export function localDayRange(now: Date) {
   if (!Number.isFinite(now.getTime())) throw new TaskValidationError("系统时间无效");

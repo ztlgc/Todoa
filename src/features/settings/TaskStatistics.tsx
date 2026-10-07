@@ -14,8 +14,9 @@ export function summarizeTasks(tasks: Task[], now: Date) {
   const currentTime = now.toISOString();
   const completed = tasks.filter(task => task.status === "completed").length;
   const pending = tasks.length - completed;
-  const overdue = tasks.filter(task => task.status === "todo" && task.dueAt !== null && task.dueAt < currentTime).length;
-  const dueToday = tasks.filter(task => task.status === "todo" && task.dueAt !== null && task.dueAt >= todayStart && task.dueAt < tomorrowStart).length;
+  const localDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+  const overdue = tasks.filter(task => task.status === "todo" && (task.dueDate ? task.dueDate < localDate : task.dueAt !== null && task.dueAt < currentTime)).length;
+  const dueToday = tasks.filter(task => task.status === "todo" && (task.dueDate ? task.dueDate === localDate : task.dueAt !== null && task.dueAt >= todayStart && task.dueAt < tomorrowStart)).length;
   return { total: tasks.length, completed, pending, overdue, dueToday, completionRate: tasks.length ? Math.round(completed / tasks.length * 100) : 0 };
 }
 

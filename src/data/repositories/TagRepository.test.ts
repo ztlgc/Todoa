@@ -4,6 +4,15 @@ import { parseTagId, parseTagName, TagConflictError } from "@/domain/tag";
 import { mapTagRow, mapTaskTagRow, TagNotFoundError, TaskTagNotFoundError, TagRepository, type TagRow } from "./TagRepository";
 
 const time = "2026-10-04T04:00:00.000Z";
+it("renames tags with bound values and reports conflicts or missing tags", async () => {
+  const { repo, execute, select } = setup();
+  await repo.rename(2, "  家庭  ");
+  expect(execute).toHaveBeenLastCalledWith("UPDATE OR IGNORE tags SET name = ?, updated_at = ? WHERE id = ?", ["家庭", time, 2]);
+  execute.mockResolvedValue({ rowsAffected: 0, lastInsertId: 0 });
+  await expect(repo.rename(2, "Other")).rejects.toBeInstanceOf(TagConflictError);
+  select.mockResolvedValueOnce([]);
+  await expect(repo.rename(2, "Other")).rejects.toBeInstanceOf(TagNotFoundError);
+});
 const row: TagRow = { id: 2, name: "Work", created_at: time, updated_at: time };
 function setup() {
   const select = vi.fn(async (query: string) => query.includes("FROM task_tags") ? [{ task_id: 4, tag_id: 2 }] : [row]);

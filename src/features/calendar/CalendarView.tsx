@@ -10,7 +10,7 @@ import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 export function CalendarView({ lists, listsUnavailable, tags, taskTags, tagsUnavailable, onDetailDirtyChange }: {
   lists: TaskList[]; listsUnavailable: boolean; tags: Tag[]; taskTags: TaskTag[]; tagsUnavailable: boolean; onDetailDirtyChange: (dirty: boolean) => void;
 }) {
-  const tasks = useTasks();
+  const tasks = useTasks({ status: "todo" });
   const [detail, setDetail] = useState<{ id: number; returnTo: HTMLElement }>();
   const detailDirty = useRef(false);
   const { confirm, confirmation } = useConfirmDialog();

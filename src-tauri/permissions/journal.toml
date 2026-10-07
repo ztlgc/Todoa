@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "main-journal-export"
+description = "Main may export journal Markdown through the native save dialog."
+commands.allow = ["export_journal_markdown"]

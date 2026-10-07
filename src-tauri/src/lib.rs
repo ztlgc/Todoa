@@ -60,11 +60,15 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             database_boot_status,
+            commands::content::save_task_content,
+            commands::content::import_task_image,
+            commands::content::read_task_image,
             window_state::autostart_status,
             window_state::set_autostart,
             commands::backup::backup_database,
             commands::backup::restore_database,
             commands::backup::restore_status,
+            commands::journal::export_journal_markdown,
             commands::quick_add::show_quick_add,
             commands::quick_add::hide_quick_add,
             commands::quick_add::create_quick_task,

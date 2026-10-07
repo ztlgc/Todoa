@@ -86,10 +86,10 @@ export function QuickAdd() {
   return (
     <main className="min-h-screen bg-background p-5 text-foreground">
       <h1 className="mb-4 text-lg font-semibold">快速添加</h1>
-      <form aria-label="快速新增任务" className="space-y-2 rounded-xl border border-border bg-card p-4" onSubmit={(event) => { void submit(event); }} onKeyDown={onKeyDown}>
+      <form autoComplete="off" aria-label="快速新增任务" className="space-y-2 rounded-xl border border-border bg-card p-4" onSubmit={(event) => { void submit(event); }} onKeyDown={onKeyDown}>
         <label htmlFor="quick-title" className="sr-only">任务标题</label>
         <div className="flex flex-wrap gap-2">
-          <Input ref={input} autoFocus id="quick-title" className="min-w-0 flex-1" placeholder="例如：明天下午3点开会" value={draft}
+          <Input autoComplete="off" ref={input} autoFocus id="quick-title" className="min-w-0 flex-1" placeholder="例如：明天下午3点开会" value={draft}
             disabled={pending || quitting} aria-invalid={!!error} aria-describedby="quick-feedback"
             onChange={(event) => { setDraft(event.target.value); setIgnoreRecognition(false); setError(""); }}
             onCompositionStart={() => { composing.current = true; }}

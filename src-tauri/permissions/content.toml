@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "main-task-content"
+description = "Main edits task content and local images."
+commands.allow = ["save_task_content", "import_task_image", "read_task_image"]

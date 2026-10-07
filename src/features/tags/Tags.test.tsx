@@ -13,7 +13,7 @@ import { taskKeys } from "@/features/tasks/queryKeys";
 import { tagKeys } from "./queryKeys";
 
 vi.mock("@/data/repositories/ListRepository", () => ({ listRepository: { list: vi.fn() } }));
-vi.mock("@/data/repositories/TagRepository", () => ({ tagRepository: { list: vi.fn(), listTaskTags: vi.fn(), create: vi.fn(), assign: vi.fn(), remove: vi.fn(), delete: vi.fn() } }));
+vi.mock("@/data/repositories/TagRepository", () => ({ tagRepository: { list: vi.fn(), listTaskTags: vi.fn(), create: vi.fn(), rename: vi.fn(), assign: vi.fn(), remove: vi.fn(), delete: vi.fn() } }));
 vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { list: vi.fn(), create: vi.fn(), updateStatus: vi.fn(), delete: vi.fn(), setList: vi.fn(), getById: vi.fn(), update: vi.fn() } }));
 const time = "2026-10-04T00:00:00.000Z";
 const tag: Tag = { id: 2, name: "Work", createdAt: time, updatedAt: time };
@@ -31,8 +31,8 @@ function change(label: string, value: string) { fireEvent.change(screen.getByLab
 async function ready() { await screen.findByText("Inbox tagged"); }
 function openTags() { fireEvent.click(screen.getByRole("button", { name: "打开标签" })); }
 function openCreateTag() { fireEvent.click(screen.getByRole("button", { name: "新建标签" })); }
-async function edit(title = "Inbox tagged") { fireEvent.click(screen.getByRole("button", { name: `编辑任务：${title}` })); await screen.findByLabelText(`分配标签：${title}`); }
-async function closeDetail() { await waitFor(() => expect(screen.queryByText("正在保存标签…")).toBeNull()); fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" }); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); }
+async function edit(title = "Inbox tagged") { fireEvent.click(screen.getByRole("button", { name: `编辑任务：${title}` })); await screen.findByLabelText("管理任务标签"); fireEvent.click(screen.getByLabelText("管理任务标签")); await screen.findByLabelText(`分配标签：${title}`); }
+async function closeDetail() { await waitFor(() => expect(screen.queryByText("正在保存标签…")).toBeNull()); fireEvent.click(screen.getByRole("button", { name: "关闭" })); fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); }
 beforeEach(() => {
   vi.resetAllMocks(); onlineManager.setOnline(true);
   tags = [tag]; links = [{ taskId: 1, tagId: 2 }];
@@ -72,6 +72,7 @@ it("creates and assigns a tag from task details when no tags exist", async () =>
   tags = []; links = [];
   setup(); await ready();
   fireEvent.click(screen.getByRole("button", { name: "编辑任务：Inbox tagged" }));
+  fireEvent.click(await screen.findByLabelText("管理任务标签"));
   await screen.findByLabelText("新标签名称");
   change("新标签名称", "  工作  ");
   fireEvent.click(screen.getByRole("button", { name: "分配所选标签：Inbox tagged" }));
@@ -94,7 +95,7 @@ it("assigns a duplicate once, removes only the relation and invalidates all rele
   expect(client.getQueryState(inactive)?.isInvalidated).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "移除标签：Inbox tagged：Work" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "移除标签：Inbox tagged：Work" })).toBeNull());
-  expect(screen.getByRole("heading", { name: "Inbox tagged" })).toBeTruthy(); expect(tasks).toHaveLength(3);
+  expect((screen.getByLabelText("任务标题") as HTMLTextAreaElement).value).toBe("Inbox tagged"); expect(tasks).toHaveLength(3);
   expect(client.getQueryData(tagKeys.taskTags())).toEqual([]);
 });
 
@@ -103,14 +104,14 @@ it("queries tag tasks across lists, updates the view on removal and preserves ta
   setup(); await ready(); openTags();
   fireEvent.click(screen.getByRole("button", { name: "打开标签：Work" }));
   await screen.findByText("List tagged"); expect(screen.queryByText("Unrelated")).toBeNull();
-  expect(taskRepository.list).toHaveBeenCalledWith({ tagId: 2 });
+  expect(taskRepository.list).toHaveBeenCalledWith({ tagId: 2, status: "todo" });
   expect(screen.queryByLabelText("新任务")).toBeNull();
   await edit(); fireEvent.click(screen.getByRole("button", { name: "移除标签：Inbox tagged：Work" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "移除标签：Inbox tagged：Work" })).toBeNull());
   await closeDetail();
   await waitFor(() => expect(screen.queryByText("Inbox tagged")).toBeNull());
   expect(screen.getByText("List tagged")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "删除标签：Work" }));
+  fireEvent.click(screen.getByRole("button", { name: "管理标签：Work" })); fireEvent.click(screen.getByRole("button", { name: "删除标签：Work" }));
   expect(screen.getByText("删除标签“Work”？关联会被移除，任务不会被删除。")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "取消删除标签" })); expect(tagRepository.delete).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "删除标签：Work" })); fireEvent.click(screen.getByRole("button", { name: "确认删除标签：Work" }));
@@ -138,7 +139,7 @@ it("prevents duplicate pending submits and keeps data/drafts on create, assign, 
   vi.mocked(tagRepository.remove).mockRejectedValue(new Error("locked")); fireEvent.click(screen.getByRole("button", { name: "移除标签：Inbox tagged：Work" }));
   await screen.findByText("移除标签失败，请重试。"); expect(screen.getByRole("button", { name: "移除标签：Inbox tagged：Work" })).toBeTruthy();
   await closeDetail(); openTags();
-  vi.mocked(tagRepository.delete).mockRejectedValue(new Error("locked")); fireEvent.click(screen.getByRole("button", { name: "删除标签：Work" })); fireEvent.click(screen.getByRole("button", { name: "确认删除标签：Work" }));
+  vi.mocked(tagRepository.delete).mockRejectedValue(new Error("locked")); fireEvent.click(screen.getByRole("button", { name: "管理标签：Work" })); fireEvent.click(screen.getByRole("button", { name: "删除标签：Work" })); fireEvent.click(screen.getByRole("button", { name: "确认删除标签：Work" }));
   await screen.findByText("删除标签失败，标签和关联仍保留。请重试。"); expect(screen.getByRole("button", { name: "打开标签：Work" })).toBeTruthy(); expect(links).toHaveLength(1);
 });
 
@@ -150,4 +151,17 @@ it("reports metadata/relationship read errors and disables assignment", async ()
   fireEvent.click(screen.getByRole("button", { name: "打开收件箱" })); await screen.findByText("任务标签读取失败。");
   expect(screen.queryByLabelText("分配标签：Inbox tagged")).toBeNull();
   expect((screen.getByLabelText("新标签名称") as HTMLInputElement).disabled).toBe(true);
+});
+
+it("renames tags through the management menu while retaining task links", async () => {
+  vi.mocked(tagRepository.rename).mockImplementation(async (id, name) => { tags = tags.map(item => item.id === id ? { ...item, name } : item); });
+  setup(); await ready();
+  expect(screen.queryByRole("button", { name: "删除标签：Work" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "管理标签：Work" }));
+  fireEvent.click(screen.getByRole("button", { name: "重命名标签" }));
+  change("标签名称", "家庭");
+  fireEvent.submit(screen.getByRole("form", { name: "重命名标签" }));
+  await screen.findByRole("button", { name: "打开标签：家庭" });
+  expect(tagRepository.rename).toHaveBeenCalledWith(2, "家庭");
+  expect(links).toEqual([{ taskId: 1, tagId: 2 }]);
 });

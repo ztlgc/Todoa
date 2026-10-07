@@ -5,8 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLocalQueryClient } from "@/app/queryClient";
 import { taskRepository } from "@/data/repositories/TaskRepository";
 import type { Task } from "@/domain/task";
-import { fromLocalInput } from "@/domain/taskDates";
-import { Inbox, TrashView } from "./Inbox";
+import { Inbox, TaskListView, TrashView } from "./Inbox";
 
 vi.mock("@/data/repositories/TaskRepository", () => ({
   taskRepository: { list: vi.fn(), create: vi.fn(), update: vi.fn(), updateStatus: vi.fn(), trash: vi.fn(), restore: vi.fn(), delete: vi.fn(), getById: vi.fn() },
@@ -30,7 +29,7 @@ function submit() { fireEvent.submit(screen.getByRole("form", { name: "新增任
 beforeEach(() => {
   vi.resetAllMocks();
   rows = [];
-  vi.mocked(taskRepository.list).mockImplementation(async () => [...rows]);
+  vi.mocked(taskRepository.list).mockImplementation(async filters => rows.filter(row => !filters?.status || row.status === filters.status));
   vi.mocked(taskRepository.create).mockImplementation(async ({ title }) => {
     const created = { ...task, title };
     rows = [created];
@@ -69,7 +68,7 @@ it("rejects blank input and creates via Query before clearing the draft", async 
   await screen.findByText("Buy milk");
   expect((screen.getByLabelText("新任务") as HTMLInputElement).value).toBe("");
   expect(taskRepository.create).toHaveBeenCalledWith({ title: "Buy milk" });
-  expect(taskRepository.list).toHaveBeenCalledWith({ listId: null });
+  expect(taskRepository.list).toHaveBeenCalledWith({ listId: null, status: "todo" });
 });
 
 it("shows the saved priority beneath the task and colors its checkbox", async () => {
@@ -88,16 +87,17 @@ it("opens a priority chooser and saves the selected priority immediately", async
   await screen.findByRole("button", { name: "更改优先级：高优先级" });
 });
 
-it("opens the native date and time picker from the task card", async () => {
-  rows = [task];
+it("shows the task time as text and opens details instead of a native picker", async () => {
+  const dueAt = "2026-10-07T07:30:00.000Z";
+  rows = [{ ...task, dueAt }];
   renderInbox();
-  const input = await screen.findByLabelText("截止时间：Buy milk") as HTMLInputElement;
-  const showPicker = vi.fn();
-  Object.defineProperty(input, "showPicker", { configurable: true, value: showPicker });
-  fireEvent.click(screen.getByRole("button", { name: "设置时间" }));
-  expect(showPicker).toHaveBeenCalledOnce();
-  fireEvent.change(input, { target: { value: "2026-10-07T15:30" } });
-  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, { dueAt: fromLocalInput("2026-10-07T15:30") }));
+  const time = await screen.findByText(new Date(dueAt).toLocaleString());
+  expect(time.tagName).toBe("TIME");
+  expect(screen.queryByLabelText("截止时间：Buy milk")).toBeNull();
+  expect(screen.queryByRole("button", { name: /更改时间|设置时间/ })).toBeNull();
+  fireEvent.click(time);
+  await screen.findByLabelText("任务标题");
+  expect(taskRepository.update).not.toHaveBeenCalled();
 });
 
 it("opens task details when clicking the task card body", async () => {
@@ -138,15 +138,23 @@ it("prevents duplicate pending submits and preserves draft on write failure", as
   expect(screen.queryByText("Keep this draft")).toBeNull();
 });
 
-it("keeps completed tasks visible, supports undo and moves tasks to trash without confirmation", async () => {
+it("moves completed tasks out of the inbox and supports undo from the completed view", async () => {
   rows = [task];
   renderInbox();
   await screen.findByText("Buy milk");
   fireEvent.click(screen.getByRole("checkbox", { name: "完成：Buy milk" }));
-  await screen.findByText("已完成");
-  expect(screen.getByText("Buy milk")).toBeTruthy();
+  await screen.findByText("收件箱为空");
+  expect(screen.queryByText("Buy milk")).toBeNull();
+  cleanup();
+  const client = createLocalQueryClient(); clients.push(client);
+  render(<QueryClientProvider client={client}><TaskListView name="已完成" dateFilters={{ status: "completed" }} /></QueryClientProvider>);
+  await screen.findByText("Buy milk");
   fireEvent.click(screen.getByRole("checkbox", { name: "取消完成：Buy milk" }));
-  await waitFor(() => expect(screen.queryByText("已完成")).toBeNull());
+  await screen.findByText("已完成为空");
+  expect(screen.queryByText("Buy milk")).toBeNull();
+  cleanup();
+  renderInbox();
+  await screen.findByText("Buy milk");
   fireEvent.click(screen.getByRole("button", { name: "移入回收站：Buy milk" }));
   await screen.findByText("收件箱为空");
   expect(taskRepository.trash).toHaveBeenCalledWith(1);

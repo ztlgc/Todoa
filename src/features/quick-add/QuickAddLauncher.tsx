@@ -35,7 +35,7 @@ export function QuickAddLauncher() {
     <Dialog open={open} onOpenChange={next => { if (!create.isPending && !composing.current) setOpen(next); }}><DialogContent className="sm:max-w-xl" onKeyDownCapture={event => { if (event.key === "Escape" && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) { event.preventDefault(); event.stopPropagation(); } }}>
       <DialogTitle>快速添加任务</DialogTitle>
       <DialogDescription>添加到收件箱。</DialogDescription>
-      <form aria-label="快速新增任务" className="space-y-2 rounded-xl border border-border bg-card p-4" onSubmit={async event => {
+      <form autoComplete="off" aria-label="快速新增任务" className="space-y-2 rounded-xl border border-border bg-card p-4" onSubmit={async event => {
         event.preventDefault(); if (composing.current || submitting.current) return;
         let taskTitle: string;
         try { taskTitle = parseTaskTitle(parsed?.title ?? title); } catch (cause) { setError(cause instanceof TaskValidationError ? cause.message : "任务标题无效。"); return; }
@@ -45,7 +45,7 @@ export function QuickAddLauncher() {
         finally { submitting.current = false; }
       }}>
         <div className="flex flex-wrap gap-2">
-          <Input aria-label="任务名称" className="min-w-0 flex-1" placeholder="例如：明天下午3点开会" value={title} disabled={create.isPending} aria-invalid={!!error} aria-describedby={error ? "quick-create-error" : undefined} onChange={event => { setTitle(event.target.value); setIgnoreRecognition(false); setError(""); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if (event.key === "Enter" && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) event.preventDefault(); }} autoFocus />
+          <Input autoComplete="off" aria-label="任务名称" className="min-w-0 flex-1" placeholder="例如：明天下午3点开会" value={title} disabled={create.isPending} aria-invalid={!!error} aria-describedby={error ? "quick-create-error" : undefined} onChange={event => { setTitle(event.target.value); setIgnoreRecognition(false); setError(""); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if (event.key === "Enter" && (composing.current || event.nativeEvent.isComposing || event.keyCode === 229)) event.preventDefault(); }} autoFocus />
           <Button type="submit" disabled={create.isPending}>{create.isPending ? "正在添加…" : "添加任务"}</Button>
         </div>
         <TaskInputFeedback draft={title} parsed={parsed} ignoreRecognition={ignoreRecognition} onIgnoreChange={setIgnoreRecognition} />

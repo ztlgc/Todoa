@@ -53,7 +53,7 @@ export function TaskTags({ task, tags, assignedIds, disabled, onBusyChange }: { 
         {tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
         <option value="new">新建标签…</option>
       </select>}
-      {(tags.length === 0 || candidate === "new") && <Input aria-label="新标签名称" placeholder="输入新标签名称" value={newName} onChange={event => setNewName(event.target.value)} disabled={disabled || pending} className="h-8 min-w-0 flex-1" />}
+      {(tags.length === 0 || candidate === "new") && <Input autoComplete="off" aria-label="新标签名称" placeholder="输入新标签名称" value={newName} onChange={event => setNewName(event.target.value)} disabled={disabled || pending} className="h-8 min-w-0 flex-1" />}
       <Button variant="outline" size="sm" disabled={disabled || pending || ((tags.length === 0 || candidate === "new") ? !newName.trim() : candidate === "")} aria-label={`分配所选标签：${task.title}`} onClick={() => void add()}>添加标签</Button>
     </div>
     {pending && <p role="status" className="text-xs text-muted-foreground">正在保存标签…</p>}

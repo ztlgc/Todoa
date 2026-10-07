@@ -20,6 +20,13 @@ pub struct ScheduledInput {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledUpdate {
+    #[serde(default)]
+    pub has_date: bool,
+    pub due_date: Option<String>,
+    #[serde(default)]
+    pub has_repeat: bool,
+    pub repeat_rule: Option<String>,
+    pub reminder_offsets: Option<Vec<i64>>,
     pub title: Option<String>,
     pub notes: Option<String>,
     pub list_id: Option<i64>,
@@ -189,7 +196,7 @@ pub async fn update(
         .transpose()?;
     let mut tx = pool.begin().await.map_err(|_| "TASK_TRANSACTION_FAILED")?;
     let row = sqlx::query(
-        "SELECT status,due_at,reminder_offsets FROM tasks WHERE id=? AND deleted_at IS NULL",
+        "SELECT status,due_at,due_date,repeat_rule,reminder_offsets FROM tasks WHERE id=? AND deleted_at IS NULL",
     )
     .bind(id)
     .fetch_optional(&mut *tx)
@@ -197,12 +204,73 @@ pub async fn update(
     .map_err(|_| "TASK_UPDATE_FAILED")?
     .ok_or("TASK_NOT_FOUND")?;
     let previous: Option<String> = row.get("due_at");
-    let changed = input.has_due && due != previous;
+    let next_due_time = if input.has_due {
+        due.clone()
+    } else {
+        previous.clone()
+    };
+    let next_date = if input.has_date {
+        input.due_date.clone()
+    } else {
+        row.get::<Option<String>, _>("due_date")
+    };
+    if next_due_time.is_some() && next_date.is_some() {
+        return Err("INVALID_DUE_TIME");
+    }
+    if let Some(date) = &next_date {
+        if NaiveDate::parse_from_str(date, "%Y-%m-%d").is_err() {
+            return Err("INVALID_DUE_TIME");
+        }
+    }
+    let next_rule = if input.has_repeat {
+        input.repeat_rule.clone()
+    } else if input.clear_repeat {
+        None
+    } else {
+        row.get::<Option<String>, _>("repeat_rule")
+    };
+    if next_rule.as_deref().is_some_and(|r| !valid_rule(r))
+        || (next_rule.is_some() && next_due_time.is_none() && next_date.is_none())
+    {
+        return Err("INVALID_REPEAT_RULE");
+    }
+    let offsets = if next_due_time.is_none() { vec![] } else { input.reminder_offsets.clone().unwrap_or(
+        serde_json::from_str::<Vec<i64>>(&row.get::<String, _>("reminder_offsets"))
+            .map_err(|_| "INVALID_REMINDER_RULE")?,
+    ) };
+    if offsets.len() > 16
+        || offsets.iter().any(|n| !(0..=525600).contains(n))
+        || (next_due_time.is_none() && !offsets.is_empty())
+    {
+        return Err("INVALID_REMINDER_RULE");
+    }
+    if input.reminder_offsets.is_some()
+        && offsets.iter().any(|offset| {
+            DateTime::parse_from_rfc3339(next_due_time.as_deref().unwrap_or("")).map_or(true, |d| {
+                (d - Duration::minutes(*offset)).timestamp_millis() <= now
+            })
+        })
+    {
+        return Err("REMINDER_MUST_BE_FUTURE");
+    }
+    let changed = (input.has_due && due != previous) || input.reminder_offsets.is_some();
     let stamp_now = crate::services::reminders::timestamp(now);
     sqlx::query("UPDATE tasks SET title=COALESCE(?,title),notes=COALESCE(?,notes),list_id=CASE WHEN ? THEN ? ELSE list_id END,due_at=CASE WHEN ? THEN ? ELSE due_at END,repeat_rule=CASE WHEN ? OR (? AND ? IS NULL) THEN NULL ELSE repeat_rule END,reminder_offsets=CASE WHEN ? AND ? IS NULL THEN '[]' ELSE reminder_offsets END,priority=COALESCE(?,priority),updated_at=? WHERE id=? AND deleted_at IS NULL")
         .bind(input.title.map(|s| s.trim().to_string())).bind(input.notes).bind(input.has_list).bind(input.list_id)
         .bind(input.has_due).bind(&due).bind(input.clear_repeat).bind(input.has_due).bind(&due).bind(input.has_due).bind(&due)
         .bind(input.priority).bind(&stamp_now).bind(id).execute(&mut *tx).await.map_err(|_| "TASK_UPDATE_FAILED")?;
+    sqlx::query("UPDATE tasks SET due_date=?,repeat_rule=?,reminder_offsets=? WHERE id=?")
+        .bind(&next_date)
+        .bind(if next_due_time.is_none() && next_date.is_none() {
+            None
+        } else {
+            next_rule.as_deref()
+        })
+        .bind(serde_json::to_string(&offsets).map_err(|_| "INVALID_REMINDER_RULE")?)
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| "TASK_UPDATE_FAILED")?;
     if changed {
         sqlx::query(
             "DELETE FROM reminders WHERE task_id=? AND generated=1 AND triggered_at IS NULL",
@@ -211,15 +279,12 @@ pub async fn update(
         .execute(&mut *tx)
         .await
         .map_err(|_| "REMINDER_CANCEL_FAILED")?;
-        if let Some(due) = due {
+        if let Some(due) = next_due_time {
             if row.get::<String, _>("status") == "todo" {
                 let parsed = DateTime::parse_from_rfc3339(&due)
                     .map_err(|_| "INVALID_DUE_TIME")?
                     .with_timezone(&Utc);
-                let offsets: String = row.get("reminder_offsets");
-                for minutes in serde_json::from_str::<Vec<i64>>(&offsets)
-                    .map_err(|_| "INVALID_REMINDER_RULE")?
-                {
+                for minutes in offsets {
                     let remind = parsed - Duration::minutes(minutes);
                     if remind.timestamp_millis() <= now {
                         continue;
@@ -334,14 +399,27 @@ pub async fn create_next(
     task_id: i64,
     now: i64,
 ) -> Result<(), &'static str> {
-    let row = sqlx::query("SELECT title,list_id,notes,due_at,repeat_rule,reminder_offsets,priority,sort_order FROM tasks WHERE id=?")
+    let row = sqlx::query("SELECT title,list_id,notes,due_at,due_date,content_json,repeat_rule,reminder_offsets,priority,sort_order FROM tasks WHERE id=?")
         .bind(task_id).fetch_one(&mut **tx).await.map_err(|_| "TASK_NOT_FOUND")?;
     let Some(rule) = row.get::<Option<String>, _>("repeat_rule") else {
         return Ok(());
     };
-    let due: String = row
-        .get::<Option<String>, _>("due_at")
-        .ok_or("INVALID_REPEAT_RULE")?;
+    let date_only = row.get::<Option<String>, _>("due_date");
+    let due: String = match row.get::<Option<String>, _>("due_at") {
+        Some(time) => time,
+        None => {
+            let date = NaiveDate::parse_from_str(
+                date_only.as_deref().ok_or("INVALID_REPEAT_RULE")?,
+                "%Y-%m-%d",
+            )
+            .map_err(|_| "INVALID_DUE_TIME")?;
+            Local
+                .from_local_datetime(&date.and_hms_opt(12, 0, 0).unwrap())
+                .earliest()
+                .ok_or("INVALID_DUE_TIME")?
+                .to_rfc3339()
+        }
+    };
     let prior = DateTime::parse_from_rfc3339(&due)
         .map_err(|_| "INVALID_DUE_TIME")?
         .with_timezone(&Utc);
@@ -351,9 +429,17 @@ pub async fn create_next(
     let offsets: String = row.get("reminder_offsets");
     let result = sqlx::query("INSERT INTO tasks(title,list_id,notes,due_at,repeat_rule,reminder_offsets,priority,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
         .bind(row.get::<String,_>("title")).bind(row.get::<Option<i64>,_>("list_id")).bind(row.get::<String,_>("notes"))
-        .bind(stamp(next)).bind(&rule).bind(&offsets).bind(row.get::<String,_>("priority")).bind(row.get::<i64,_>("sort_order")).bind(&created).bind(&created)
+        .bind(if date_only.is_some() {None} else {Some(stamp(next))}).bind(&rule).bind(&offsets).bind(row.get::<String,_>("priority")).bind(row.get::<i64,_>("sort_order")).bind(&created).bind(&created)
         .execute(&mut **tx).await.map_err(|_| "TASK_CREATE_FAILED")?;
     let new_id = result.last_insert_rowid();
+    sqlx::query("UPDATE tasks SET content_json=?,due_date=? WHERE id=?")
+        .bind(row.get::<Option<String>, _>("content_json"))
+        .bind(date_only.map(|_| next.with_timezone(&Local).format("%Y-%m-%d").to_string()))
+        .bind(new_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(|_| "TASK_CREATE_FAILED")?;
+    sqlx::query("INSERT INTO task_asset_refs(task_id,asset_id) SELECT ?,asset_id FROM task_asset_refs WHERE task_id=?").bind(new_id).bind(task_id).execute(&mut **tx).await.map_err(|_|"TASK_CREATE_FAILED")?;
     sqlx::query(
         "INSERT INTO task_tags(task_id,tag_id) SELECT ?,tag_id FROM task_tags WHERE task_id=?",
     )
@@ -408,6 +494,19 @@ mod tests {
                 .execute(&pool)
                 .await
                 .unwrap();
+            sqlx::raw_sql(include_str!("../../migrations/0004_task_trash.sql"))
+                .execute(&pool)
+                .await
+                .unwrap();
+            sqlx::raw_sql(include_str!("../../migrations/0005_journal.sql"))
+                .execute(&pool)
+                .await
+                .unwrap();
+            sqlx::raw_sql(include_str!("../../migrations/0006_task_content.sql"))
+                .execute(&pool)
+                .await
+                .unwrap();
+
             let now = DateTime::parse_from_rfc3339("2026-10-05T01:00:00Z")
                 .unwrap()
                 .timestamp_millis();
@@ -437,6 +536,11 @@ mod tests {
                 &pool,
                 id,
                 ScheduledUpdate {
+                    has_date: false,
+                    due_date: None,
+                    has_repeat: false,
+                    repeat_rule: None,
+                    reminder_offsets: None,
                     title: None,
                     notes: None,
                     list_id: None,

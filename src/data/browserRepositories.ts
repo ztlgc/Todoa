@@ -3,6 +3,7 @@ import { parseListId, parseListName, type TaskList } from "@/domain/list";
 import { parseTagId, parseTagName, TagConflictError, type Tag, type TaskTag } from "@/domain/tag";
 import type { Reminder } from "./repositories/ReminderRepository";
 import { nextRepeatDue } from "@/domain/naturalTaskInput";
+import { compareTaskDates } from "@/domain/taskDates";
 
 // Browser dev data is deliberately separate from the desktop SQLite database.
 const state = {
@@ -21,9 +22,13 @@ export const browserTaskRepository = {
       if (scope.status && task.status !== scope.status) return false;
       if (scope.listId !== undefined && task.listId !== scope.listId) return false;
       if (scope.tagId !== undefined && !state.taskTags.some((link) => link.taskId === task.id && link.tagId === scope.tagId)) return false;
-      if (scope.dateRange && (!task.dueAt || task.dueAt < scope.dateRange.from || (scope.dateRange.to && task.dueAt >= scope.dateRange.to))) return false;
+      if (scope.dateRange) {
+        const date = (utc: string) => { const d=new Date(utc);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+        const matches = task.dueDate ? task.dueDate >= date(scope.dateRange.from) && (!scope.dateRange.to || task.dueDate < date(scope.dateRange.to)) : !!task.dueAt && task.dueAt >= scope.dateRange.from && (!scope.dateRange.to || task.dueAt < scope.dateRange.to);
+        if(!matches)return false;
+      }
       return true;
-    }).sort((a, b) => scope.deleted ? (b.deletedAt ?? "").localeCompare(a.deletedAt ?? "") || b.id - a.id : scope.dateView ? (a.dueAt ?? "").localeCompare(b.dueAt ?? "") || a.sortOrder - b.sortOrder || a.id - b.id : a.sortOrder - b.sortOrder || a.id - b.id);
+    }).sort((a, b) => scope.deleted ? (b.deletedAt ?? "").localeCompare(a.deletedAt ?? "") || b.id - a.id : scope.dateView ? compareTaskDates(a, b) : a.sortOrder - b.sortOrder || a.id - b.id);
   },
   async getById(id: number): Promise<Task | null> { return state.tasks.find((task) => task.id === parseTaskId(id) && !task.deletedAt) ?? null; },
   async create(input: CreateTaskInput): Promise<Task> {
@@ -42,13 +47,13 @@ export const browserTaskRepository = {
     const task = state.tasks.find((item) => item.id === parseTaskId(id));
     if (!task || task.deletedAt) throw new Error("任务不存在");
     const parsed = parseUpdateTaskInput(input);
-    const changedDue = parsed.dueAt !== undefined && parsed.dueAt !== task.dueAt;
+    const changedDue = (parsed.dueAt !== undefined && parsed.dueAt !== task.dueAt) || parsed.reminderOffsets !== undefined;
     if (changedDue) {
       state.reminders = state.reminders.filter(reminder => reminder.taskId !== task.id || reminder.triggeredAt !== null || !state.generatedReminderIds.has(reminder.id));
     }
     Object.assign(task, parsed, { updatedAt: stamp() });
     if (changedDue) {
-      if (!task.dueAt) { task.repeatRule = null; task.reminderOffsets = []; }
+      if (!task.dueAt) { if (!task.dueDate) task.repeatRule = null; task.reminderOffsets = []; }
       else if (task.status === "todo") {
         for (const offset of task.reminderOffsets ?? []) {
           const remindAt = new Date(Date.parse(task.dueAt) - offset * 60000).toISOString();
@@ -68,10 +73,10 @@ export const browserTaskRepository = {
     task.status = parseTaskStatus(status); task.completedAt = status === "completed" ? stamp() : null; task.updatedAt = stamp();
     if (status === "completed") {
       state.reminders = state.reminders.filter(reminder => reminder.taskId !== task.id || reminder.triggeredAt !== null);
-      if (wasTodo && task.repeatRule && task.dueAt) {
-        const dueAt = nextRepeatDue(task.dueAt, task.repeatRule);
+      if (wasTodo && task.repeatRule && (task.dueAt || task.dueDate)) {
+        const dueAt = nextRepeatDue(task.dueAt ?? new Date(task.dueDate+"T12:00:00").toISOString(), task.repeatRule);
         if (dueAt) {
-          const next: Task = { ...task, id: state.nextTask++, dueAt, status: "todo", completedAt: null, createdAt: stamp(), updatedAt: stamp() };
+          const next: Task = { ...task, id: state.nextTask++, dueAt: task.dueDate ? null : dueAt, dueDate: task.dueDate ? (()=>{const d=new Date(dueAt);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})() : null, contentRevision: 0, status: "todo", completedAt: null, createdAt: stamp(), updatedAt: stamp() };
           state.tasks.push(next);
           for (const link of state.taskTags.filter(link => link.taskId === task.id)) state.taskTags.push({ taskId: next.id, tagId: link.tagId });
           for (const offset of task.reminderOffsets ?? []) {
@@ -129,6 +134,13 @@ export const browserListRepository = {
 };
 
 export const browserTagRepository = {
+  async rename(id: number, name: string): Promise<void> {
+    const tagId = parseTagId(id), parsed = parseTagName(name);
+    const tag = state.tags.find(item => item.id === tagId);
+    if (!tag) throw new Error("标签不存在");
+    if (state.tags.some(item => item.id !== tagId && item.name.toLocaleLowerCase() === parsed.toLocaleLowerCase())) throw new TagConflictError(parsed);
+    tag.name = parsed; tag.updatedAt = stamp();
+  },
   async list(): Promise<Tag[]> { return [...state.tags].sort((a, b) => a.name.localeCompare(b.name, "zh-CN") || a.id - b.id); },
   async listTaskTags(): Promise<TaskTag[]> { return [...state.taskTags]; },
   async create(name: string): Promise<Tag> {

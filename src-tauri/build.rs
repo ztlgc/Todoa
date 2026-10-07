@@ -2,11 +2,15 @@ fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "database_boot_status",
+            "save_task_content",
+            "import_task_image",
+            "read_task_image",
             "autostart_status",
             "set_autostart",
             "backup_database",
             "restore_database",
             "restore_status",
+            "export_journal_markdown",
             "show_quick_add",
             "hide_quick_add",
             "create_quick_task",

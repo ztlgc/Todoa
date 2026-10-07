@@ -35,7 +35,7 @@ describe("Task domain and row mapping", () => {
   it("maps all snake_case fields and preserves null", () => {
     expect(mapTaskRow(row)).toEqual({
       id: 4, listId: null, title: "Buy milk", notes: "", status: "todo", priority: "none",
-      dueAt: null, repeatRule: null, reminderOffsets: [], completedAt: null, deletedAt: null, sortOrder: 0,
+      dueAt: null, contentJson: null, contentRevision: 0, dueDate: null, repeatRule: null, reminderOffsets: [], completedAt: null, deletedAt: null, sortOrder: 0,
       createdAt: "2026-10-04T01:02:03.000Z", updatedAt: "2026-10-04T01:02:03.000Z",
     });
     expect(mapTaskRow({ ...row, list_id: 2, status: "completed", completed_at: "2026-10-04T02:03:04.005Z" }).completedAt)
@@ -69,7 +69,7 @@ describe("TaskRepository fake adapter protocol", () => {
     const { repo, select, execute, command } = fakeDatabase();
     expect(await repo.getById(4)).toMatchObject({ id: 4 });
     await repo.update(4, { title: "  'quoted'  ", notes: "中文\nplain", dueAt: null, listId: 7 });
-    expect(command).toHaveBeenCalledWith("update_task_schedule", { id: 4, input: { title: "'quoted'", notes: "中文\nplain", dueAt: null, listId: 7, hasDue: true, hasList: true } });
+    expect(command).toHaveBeenCalledWith("update_task_schedule", { id: 4, input: { title: "'quoted'", notes: "中文\nplain", dueAt: null, listId: 7, hasDue: true, hasList: true, hasDate: false, hasRepeat: false } });
     execute.mockClear();
     await expect(repo.update(4, {})).rejects.toThrow();
     await expect(repo.update(4, { listId: 0 })).rejects.toThrow();
@@ -82,9 +82,9 @@ describe("TaskRepository fake adapter protocol", () => {
     const { repo, select } = fakeDatabase();
     const range = { from: "2026-10-04T16:00:00.000Z", to: "2026-10-05T16:00:00.000Z" };
     await repo.list({ dateView: "today", dateRange: range });
-    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("status = ? AND due_at >= ? AND due_at < ? ORDER BY due_at ASC"), ["todo", range.from, range.to]);
+    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("OR (due_date >= ? AND due_date < ?)"), ["todo", range.from, range.to, new Date(range.from).toLocaleDateString("sv-SE"), new Date(range.to).toLocaleDateString("sv-SE")]);
     await repo.list({ dateView: "upcoming", dateRange: { from: range.to } });
-    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("status = ? AND due_at >= ? ORDER BY due_at ASC"), ["todo", range.to]);
+    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("(due_at >= ? OR due_date >= ?)"), ["todo", range.to, new Date(range.to).toLocaleDateString("sv-SE")]);
     select.mockClear();
     for (const filters of [{ dateView: "today", dateRange: { from: range.from } }, { dateView: "today", dateRange: { from: range.to, to: range.from } }, { dateView: "upcoming", dateRange: range }, { dateView: "today", dateRange: range, status: "completed" }]) await expect(repo.list(filters as never)).rejects.toThrow();
     expect(select).not.toHaveBeenCalled();
@@ -182,6 +182,6 @@ describe("TaskRepository fake adapter protocol", () => {
 it("routes recurrence clearing through the desktop schedule transaction without clearing the date", async () => {
   const { repo, command, execute } = fakeDatabase();
   await repo.update(4, { repeatRule: null });
-  expect(command).toHaveBeenCalledWith("update_task_schedule", { id: 4, input: { repeatRule: null, clearRepeat: true, hasDue: false, hasList: false } });
+  expect(command).toHaveBeenCalledWith("update_task_schedule", { id: 4, input: { repeatRule: null, clearRepeat: true, hasDue: false, hasList: false, hasDate: false, hasRepeat: true } });
   expect(execute).not.toHaveBeenCalled();
 });
