@@ -7,6 +7,7 @@ import {
   parseUpdateTaskInput,
 } from "@/domain/task";
 import { mapTaskRow, TaskNotFoundError, TaskRepository, type TaskDatabase, type TaskRow } from "./TaskRepository";
+import { parseNaturalTaskInput } from "@/domain/naturalTaskInput";
 
 const row: TaskRow = {
   id: 4,
@@ -34,7 +35,7 @@ describe("Task domain and row mapping", () => {
   it("maps all snake_case fields and preserves null", () => {
     expect(mapTaskRow(row)).toEqual({
       id: 4, listId: null, title: "Buy milk", notes: "", status: "todo", priority: "none",
-      dueAt: null, repeatRule: null, reminderOffsets: [], completedAt: null, sortOrder: 0,
+      dueAt: null, repeatRule: null, reminderOffsets: [], completedAt: null, deletedAt: null, sortOrder: 0,
       createdAt: "2026-10-04T01:02:03.000Z", updatedAt: "2026-10-04T01:02:03.000Z",
     });
     expect(mapTaskRow({ ...row, list_id: 2, status: "completed", completed_at: "2026-10-04T02:03:04.005Z" }).completedAt)
@@ -91,9 +92,9 @@ describe("TaskRepository fake adapter protocol", () => {
   it("filters by a bound tag through EXISTS, independently of list or status", async () => {
     const { repo, select } = fakeDatabase();
     await repo.list({ tagId: 2 });
-    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("WHERE EXISTS (SELECT 1 FROM task_tags WHERE task_tags.task_id = tasks.id AND task_tags.tag_id = ?) ORDER BY sort_order ASC, id ASC"), [2]);
+    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("deleted_at IS NULL AND EXISTS (SELECT 1 FROM task_tags WHERE task_tags.task_id = tasks.id AND task_tags.tag_id = ?) ORDER BY sort_order ASC, id ASC"), [2]);
     await repo.list({ tagId: 2, listId: null, status: "completed" });
-    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("WHERE status = ? AND list_id IS NULL AND EXISTS"), ["completed", 2]);
+    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("deleted_at IS NULL AND status = ? AND list_id IS NULL AND EXISTS"), ["completed", 2]);
     select.mockClear();
     await expect(repo.list({ tagId: 0 })).rejects.toThrow();
     await expect(repo.list({ tagId: -1 })).rejects.toThrow();
@@ -104,7 +105,7 @@ describe("TaskRepository fake adapter protocol", () => {
     await expect(repo.create({ title: "Buy milk", listId: 7 })).resolves.toMatchObject({ listId: 7 });
     expect(execute).toHaveBeenLastCalledWith(expect.stringContaining("INSERT INTO tasks"), ["Buy milk", 7, "", null, "none", "2026-10-04T02:03:04.005Z", "2026-10-04T02:03:04.005Z"]);
     await repo.setList(4, 7);
-    expect(execute).toHaveBeenLastCalledWith(expect.stringMatching(/^UPDATE tasks SET updated_at = CASE .* list_id = \? WHERE id = \?$/), [7, "2026-10-04T02:03:04.005Z", 7, 4]);
+    expect(execute).toHaveBeenLastCalledWith(expect.stringMatching(/^UPDATE tasks SET updated_at = CASE .* list_id = \? WHERE id = \? AND deleted_at IS NULL$/), [7, "2026-10-04T02:03:04.005Z", 7, 4]);
     await repo.setList(4, null);
     expect(execute).toHaveBeenLastCalledWith(expect.stringContaining("list_id = ? WHERE id = ?"), [null, "2026-10-04T02:03:04.005Z", null, 4]);
     for (const id of [0, -1, 1.2]) await expect(repo.setList(4, id)).rejects.toThrow();
@@ -118,13 +119,25 @@ describe("TaskRepository fake adapter protocol", () => {
     const { repo, select } = fakeDatabase();
     await expect(repo.list({ status: "todo", listId: 7 })).resolves.toHaveLength(1);
     expect(select).toHaveBeenCalledWith(
-      expect.stringMatching(/WHERE status = \? AND list_id = \? ORDER BY sort_order ASC, id ASC$/),
+      expect.stringMatching(/WHERE deleted_at IS NULL AND status = \? AND list_id = \? ORDER BY sort_order ASC, id ASC$/),
       ["todo", 7],
     );
     await repo.list({ listId: null });
-    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("WHERE list_id IS NULL"), []);
+    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("deleted_at IS NULL AND list_id IS NULL"), []);
     await repo.list();
-    expect(select).toHaveBeenLastCalledWith(expect.not.stringContaining(" WHERE "), []);
+    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("WHERE deleted_at IS NULL"), []);
+    await repo.list({ deleted: true });
+    expect(select).toHaveBeenLastCalledWith(expect.stringContaining("WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC"), []);
+  });
+
+  it("moves, restores and permanently deletes only trashed tasks", async () => {
+    const { repo, execute } = fakeDatabase();
+    await repo.trash(4);
+    expect(execute).toHaveBeenLastCalledWith(expect.stringContaining("UPDATE tasks SET deleted_at = ?"), ["2026-10-04T02:03:04.005Z", "2026-10-04T02:03:04.005Z", 4]);
+    await repo.restore(4);
+    expect(execute).toHaveBeenLastCalledWith(expect.stringContaining("SET deleted_at = NULL"), ["2026-10-04T02:03:04.005Z", 4]);
+    await repo.delete(4);
+    expect(execute).toHaveBeenLastCalledWith("DELETE FROM tasks WHERE id = ? AND deleted_at IS NOT NULL", [4]);
   });
 
   it("binds create values and reads the returned insert ID", async () => {
@@ -138,6 +151,14 @@ describe("TaskRepository fake adapter protocol", () => {
     expect(select).toHaveBeenCalledWith(expect.stringContaining("WHERE id = ?"), [4]);
     execute.mockResolvedValueOnce({ rowsAffected: 1, lastInsertId: 0 });
     await expect(repo.create({ title: "x" })).rejects.toThrow();
+  });
+  it("creates the reported daily reminder through the scheduled desktop command", async () => {
+    const input = parseNaturalTaskInput("每天明天早上十一点提醒我上班", new Date(2026, 9, 7, 9));
+    const { repo, execute, command } = fakeDatabase([{ ...row, title: input.title, due_at: input.dueAt, repeat_rule: input.repeatRule, reminder_offsets: "[0]" }]);
+    command.mockResolvedValueOnce(4 as never);
+    await expect(repo.create(input)).resolves.toMatchObject({ title: "提醒我上班", repeatRule: "day:1", reminderOffsets: [0] });
+    expect(command).toHaveBeenCalledWith("create_scheduled_task", { input: parseCreateTaskInput(input) });
+    expect(execute).not.toHaveBeenCalled();
   });
 
   it("uses only Rust status transaction, and wakes scheduler after committed delete", async () => {
@@ -156,4 +177,11 @@ describe("TaskRepository fake adapter protocol", () => {
     await expect(repo.updateStatus(0,"todo")).rejects.toThrow();
     expect(command).not.toHaveBeenCalled();
   });
+});
+
+it("routes recurrence clearing through the desktop schedule transaction without clearing the date", async () => {
+  const { repo, command, execute } = fakeDatabase();
+  await repo.update(4, { repeatRule: null });
+  expect(command).toHaveBeenCalledWith("update_task_schedule", { id: 4, input: { repeatRule: null, clearRepeat: true, hasDue: false, hasList: false } });
+  expect(execute).not.toHaveBeenCalled();
 });

@@ -39,7 +39,7 @@ export function TaskTags({ task, tags, assignedIds, disabled, onBusyChange }: { 
     finally { writing.current = false; onBusyChange?.(false); }
   }
 
-  return <div className="space-y-2 pl-7" aria-label={`任务标签：${task.title}`}>
+  return <div className="space-y-2" aria-label={`任务标签：${task.title}`}>
     <div className="flex flex-wrap gap-2">
       {tags.filter((tag) => assignedIds.includes(tag.id)).map((tag) => <span key={tag.id} className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs">
         <span className="break-all">{tag.name}</span>

@@ -17,14 +17,15 @@ export const browserTaskRepository = {
   async list(filters: TaskFilters = {}): Promise<Task[]> {
     const scope = parseTaskFilters(filters);
     return state.tasks.filter((task) => {
+      if (scope.deleted ? !task.deletedAt : !!task.deletedAt) return false;
       if (scope.status && task.status !== scope.status) return false;
       if (scope.listId !== undefined && task.listId !== scope.listId) return false;
       if (scope.tagId !== undefined && !state.taskTags.some((link) => link.taskId === task.id && link.tagId === scope.tagId)) return false;
       if (scope.dateRange && (!task.dueAt || task.dueAt < scope.dateRange.from || (scope.dateRange.to && task.dueAt >= scope.dateRange.to))) return false;
       return true;
-    }).sort((a, b) => scope.dateView ? (a.dueAt ?? "").localeCompare(b.dueAt ?? "") || a.sortOrder - b.sortOrder || a.id - b.id : a.sortOrder - b.sortOrder || a.id - b.id);
+    }).sort((a, b) => scope.deleted ? (b.deletedAt ?? "").localeCompare(a.deletedAt ?? "") || b.id - a.id : scope.dateView ? (a.dueAt ?? "").localeCompare(b.dueAt ?? "") || a.sortOrder - b.sortOrder || a.id - b.id : a.sortOrder - b.sortOrder || a.id - b.id);
   },
-  async getById(id: number): Promise<Task | null> { return state.tasks.find((task) => task.id === parseTaskId(id)) ?? null; },
+  async getById(id: number): Promise<Task | null> { return state.tasks.find((task) => task.id === parseTaskId(id) && !task.deletedAt) ?? null; },
   async create(input: CreateTaskInput): Promise<Task> {
     const parsed = parseCreateTaskInput(input), now = stamp();
     const task: Task = { id: state.nextTask++, title: parsed.title, listId: parsed.listId, notes: parsed.notes, dueAt: parsed.dueAt, repeatRule: parsed.repeatRule, reminderOffsets: parsed.reminderOffsets, priority: parsed.priority, status: "todo", completedAt: null, sortOrder: state.tasks.length, createdAt: now, updatedAt: now };
@@ -39,7 +40,7 @@ export const browserTaskRepository = {
   },
   async update(id: number, input: UpdateTaskInput): Promise<Task> {
     const task = state.tasks.find((item) => item.id === parseTaskId(id));
-    if (!task) throw new Error("任务不存在");
+    if (!task || task.deletedAt) throw new Error("任务不存在");
     const parsed = parseUpdateTaskInput(input);
     const changedDue = parsed.dueAt !== undefined && parsed.dueAt !== task.dueAt;
     if (changedDue) {
@@ -62,7 +63,7 @@ export const browserTaskRepository = {
   },
   async updateStatus(id: number, status: TaskStatus): Promise<void> {
     const task = state.tasks.find((item) => item.id === parseTaskId(id));
-    if (!task) throw new Error("任务不存在");
+    if (!task || task.deletedAt) throw new Error("任务不存在");
     const wasTodo = task.status === "todo";
     task.status = parseTaskStatus(status); task.completedAt = status === "completed" ? stamp() : null; task.updatedAt = stamp();
     if (status === "completed") {
@@ -86,15 +87,25 @@ export const browserTaskRepository = {
     }
   },
   async delete(id: number): Promise<void> {
-    const taskId = parseTaskId(id), index = state.tasks.findIndex((task) => task.id === taskId);
+    const taskId = parseTaskId(id), index = state.tasks.findIndex((task) => task.id === taskId && !!task.deletedAt);
     if (index < 0) throw new Error("任务不存在");
     state.tasks.splice(index, 1);
     state.taskTags = state.taskTags.filter((link) => link.taskId !== taskId);
     state.reminders = state.reminders.filter((reminder) => reminder.taskId !== taskId);
   },
+  async trash(id: number): Promise<void> {
+    const task = state.tasks.find(item => item.id === parseTaskId(id) && !item.deletedAt);
+    if (!task) throw new Error("任务不存在");
+    task.deletedAt = stamp(); task.updatedAt = task.deletedAt;
+  },
+  async restore(id: number): Promise<void> {
+    const task = state.tasks.find(item => item.id === parseTaskId(id) && !!item.deletedAt);
+    if (!task) throw new Error("任务不存在");
+    task.deletedAt = null; task.updatedAt = stamp();
+  },
   async setList(id: number, listId: number | null): Promise<void> {
     const task = state.tasks.find((item) => item.id === parseTaskId(id));
-    if (!task) throw new Error("任务不存在");
+    if (!task || task.deletedAt) throw new Error("任务不存在");
     if (listId !== null && !state.lists.some((list) => list.id === parseListId(listId))) throw new Error("清单不存在");
     task.listId = listId; task.updatedAt = stamp();
   },

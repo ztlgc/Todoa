@@ -21,7 +21,7 @@ export function useTasks(filters: TaskFilters = {}) {
   const scope = parseTaskFilters(filters);
   return useQuery({
     queryKey: taskKeys.list({
-      view: scope.dateView ?? (scope.tagId !== undefined ? "tag" : scope.listId === null ? "inbox" : scope.listId === undefined ? "all" : "list"),
+      view: scope.deleted ? "trash" : scope.dateView ?? (scope.tagId !== undefined ? "tag" : scope.listId === null ? "inbox" : scope.listId === undefined ? "all" : "list"),
       ...scope,
     }),
     queryFn: () => taskRepository.list(filters),
@@ -66,6 +66,18 @@ export function useDeleteTask() {
     retry: 0,
     onSuccess: (_data, id) => invalidateTaskCaches(client, id),
   });
+}
+
+export function useTrashTask() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (id: number) => taskRepository.trash(id), networkMode: "always", retry: 0,
+    onSuccess: (_data, id) => invalidateTaskCaches(client, id) });
+}
+
+export function useRestoreTask() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (id: number) => taskRepository.restore(id), networkMode: "always", retry: 0,
+    onSuccess: (_data, id) => invalidateTaskCaches(client, id) });
 }
 
 export function useSetTaskList() {

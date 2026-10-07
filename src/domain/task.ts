@@ -22,6 +22,7 @@ export interface Task {
   repeatRule?: string | null;
   reminderOffsets?: number[];
   completedAt: string | null;
+  deletedAt?: string | null;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +40,7 @@ export interface CreateTaskInput {
 }
 
 export interface UpdateTaskInput {
+  repeatRule?: null;
   listId?: number | null;
   title?: string;
   notes?: string;
@@ -48,6 +50,7 @@ export interface UpdateTaskInput {
 
 export interface TaskFilters {
   status?: TaskStatus;
+  deleted?: boolean;
   listId?: number | null;
   tagId?: number;
   dateView?: "today" | "upcoming";
@@ -162,6 +165,10 @@ export function parseUpdateTaskInput(value: UpdateTaskInput): UpdateTaskInput {
   if (value.notes !== undefined) result.notes = parseTaskNotes(value.notes);
   if (value.dueAt !== undefined) result.dueAt = value.dueAt === null ? null : parseTaskTime(value.dueAt);
   if (value.priority !== undefined) result.priority = parseTaskPriority(value.priority);
+  if (value.repeatRule !== undefined) {
+    if (value.repeatRule !== null) throw new TaskValidationError("仅支持清除重复规则");
+    result.repeatRule = null;
+  }
   if (Object.keys(result).length === 0) {
     throw new TaskValidationError("没有可更新的任务字段");
   }
@@ -172,6 +179,7 @@ export function parseTaskFilters(value: TaskFilters = {}): TaskFilters {
   if (value === null || typeof value !== "object") {
     throw new TaskValidationError("任务筛选条件无效");
   }
+  if (value.deleted !== undefined && typeof value.deleted !== "boolean") throw new TaskValidationError("回收站筛选条件无效");
   let date: Pick<TaskFilters, "dateView" | "dateRange"> = {};
   if (value.dateView !== undefined || value.dateRange !== undefined) {
     if ((value.dateView !== "today" && value.dateView !== "upcoming") || !value.dateRange || value.status === "completed") throw new TaskValidationError("日期视图条件无效");
@@ -182,6 +190,7 @@ export function parseTaskFilters(value: TaskFilters = {}): TaskFilters {
   }
   return {
     ...(value.status === undefined ? {} : { status: parseTaskStatus(value.status) }),
+    ...(value.deleted === undefined ? {} : { deleted: value.deleted }),
     ...(value.listId === undefined ? {} : { listId: value.listId === null ? null : parseListId(value.listId) }),
     ...(value.tagId === undefined ? {} : { tagId: parseTagId(value.tagId) }),
     ...date,

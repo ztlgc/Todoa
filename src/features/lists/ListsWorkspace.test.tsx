@@ -193,11 +193,11 @@ it("preserves drafts, membership and selection on failed create/rename/move/dele
   await screen.findByText("保存失败，草稿已保留。请重试。");
   expect(tasks[0].listId).toBe(1);
   expect((screen.getByLabelText("所属清单") as HTMLSelectElement).value).toBe("inbox");
-  fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   await screen.findByText("保存失败，草稿已保留。请重试。");
   expect((screen.getByLabelText("所属清单") as HTMLSelectElement).value).toBe("inbox");
   change("所属清单", "1");
-  fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   vi.mocked(listRepository.delete).mockRejectedValue(new Error("locked"));
   fireEvent.click(screen.getByRole("button", { name: "删除清单" })); fireEvent.click(screen.getByRole("button", { name: "确认删除清单" }));

@@ -32,7 +32,7 @@ async function ready() { await screen.findByText("Inbox tagged"); }
 function openTags() { fireEvent.click(screen.getByRole("button", { name: "打开标签" })); }
 function openCreateTag() { fireEvent.click(screen.getByRole("button", { name: "新建标签" })); }
 async function edit(title = "Inbox tagged") { fireEvent.click(screen.getByRole("button", { name: `编辑任务：${title}` })); await screen.findByLabelText(`分配标签：${title}`); }
-async function closeDetail() { await waitFor(() => expect(screen.queryByText("正在保存标签…")).toBeNull()); fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); }
+async function closeDetail() { await waitFor(() => expect(screen.queryByText("正在保存标签…")).toBeNull()); fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" }); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); }
 beforeEach(() => {
   vi.resetAllMocks(); onlineManager.setOnline(true);
   tags = [tag]; links = [{ taskId: 1, tagId: 2 }];

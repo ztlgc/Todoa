@@ -207,7 +207,7 @@ impl Scheduler {
             let stamp = accepted.unwrap_or_else(|| reminders::timestamp(self.clock.now()));
             let outcome = match sent {
                 Err(code) => Err(code),
-                Ok(()) => sqlx::query("UPDATE reminders SET triggered_at=?,updated_at=? WHERE id=? AND remind_at=? AND triggered_at IS NULL AND EXISTS(SELECT 1 FROM tasks WHERE tasks.id=reminders.task_id AND status='todo')")
+                Ok(()) => sqlx::query("UPDATE reminders SET triggered_at=?,updated_at=? WHERE id=? AND remind_at=? AND triggered_at IS NULL AND EXISTS(SELECT 1 FROM tasks WHERE tasks.id=reminders.task_id AND status='todo' AND deleted_at IS NULL)")
                     .bind(&stamp).bind(&stamp).bind(row.id).bind(&row.time).execute(&self.pool).await.map(|_| ()).map_err(|_| "REMINDER_MARK_FAILED"),
             };
             match outcome {

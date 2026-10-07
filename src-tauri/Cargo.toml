@@ -1,6 +1,6 @@
 [package]
 name = "todoa"
-version = "1.0.0"
+version = "1.0.1"
 description = "Todoa Windows desktop app"
 edition = "2021"
 

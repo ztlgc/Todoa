@@ -33,6 +33,7 @@ export interface TaskRow {
   repeat_rule?: string | null;
   reminder_offsets?: string | null;
   completed_at: string | null;
+  deleted_at?: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -73,13 +74,14 @@ export function mapTaskRow(row: TaskRow): Task {
     repeatRule: row.repeat_rule ?? null,
     reminderOffsets: row.reminder_offsets ? JSON.parse(row.reminder_offsets) as number[] : [],
     completedAt,
+    deletedAt: row.deleted_at == null ? null : parseTaskTime(row.deleted_at),
     sortOrder: safeInteger(row.sort_order, "sort_order"),
     createdAt: parseTaskTime(row.created_at),
     updatedAt: parseTaskTime(row.updated_at),
   };
 }
 
-const TASK_COLUMNS = "id, list_id, title, notes, status, priority, due_at, repeat_rule, reminder_offsets, completed_at, sort_order, created_at, updated_at";
+const TASK_COLUMNS = "id, list_id, title, notes, status, priority, due_at, repeat_rule, reminder_offsets, completed_at, deleted_at, sort_order, created_at, updated_at";
 
 export class TaskRepository {
   constructor(
@@ -92,6 +94,7 @@ export class TaskRepository {
     const parsed = parseTaskFilters(filters);
     const conditions: string[] = [];
     const binds: SqlValue[] = [];
+    conditions.push(parsed.deleted ? "deleted_at IS NOT NULL" : "deleted_at IS NULL");
     if (parsed.status !== undefined) {
       conditions.push("status = ?");
       binds.push(parsed.status);
@@ -113,14 +116,14 @@ export class TaskRepository {
     }
     const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
     const rows = await (await this.database()).select<TaskRow[]>(
-      `SELECT ${TASK_COLUMNS} FROM tasks${where} ORDER BY ${parsed.dateView ? "due_at ASC, " : ""}sort_order ASC, id ASC`,
+      `SELECT ${TASK_COLUMNS} FROM tasks${where} ORDER BY ${parsed.deleted ? "deleted_at DESC, " : parsed.dateView ? "due_at ASC, " : ""}sort_order ASC, id ASC`,
       binds,
     );
     return rows.map(mapTaskRow);
   }
 
   async getById(id: number): Promise<Task | null> {
-    const rows = await (await this.database()).select<TaskRow[]>(`SELECT ${TASK_COLUMNS} FROM tasks WHERE id = ?`, [parseTaskId(id)]);
+    const rows = await (await this.database()).select<TaskRow[]>(`SELECT ${TASK_COLUMNS} FROM tasks WHERE id = ? AND deleted_at IS NULL`, [parseTaskId(id)]);
     if (rows.length > 1) throw new Error("任务主键读取不唯一");
     return rows.length === 0 ? null : mapTaskRow(rows[0]);
   }
@@ -128,10 +131,11 @@ export class TaskRepository {
   async update(id: number, input: UpdateTaskInput): Promise<Task> {
     const taskId = parseTaskId(id);
     const parsed = parseUpdateTaskInput(input);
-    if (parsed.dueAt !== undefined) {
+    if (parsed.dueAt !== undefined || parsed.repeatRule === null) {
       try {
         await this.command("update_task_schedule", { id: taskId, input: {
-          ...parsed, hasDue: true, hasList: parsed.listId !== undefined,
+          ...parsed, hasDue: parsed.dueAt !== undefined, hasList: parsed.listId !== undefined,
+          ...(parsed.repeatRule === null ? { clearRepeat: true } : {}),
         } });
       } catch (cause) {
         if (cause === "TASK_NOT_FOUND") throw new TaskNotFoundError(taskId);
@@ -149,7 +153,7 @@ export class TaskRepository {
       if (value !== undefined) { fields.push(`${columns[key]} = ?`); values.push(value); }
     }
     fields.push("updated_at = ?"); values.push(this.timestamp(), taskId);
-    const result = await (await this.database()).execute(`UPDATE tasks SET ${fields.join(", ")} WHERE id = ?`, values);
+    const result = await (await this.database()).execute(`UPDATE tasks SET ${fields.join(", ")} WHERE id = ? AND deleted_at IS NULL`, values);
     if (result.rowsAffected === 0) throw new TaskNotFoundError(taskId);
     if (result.rowsAffected !== 1) throw new Error("任务编辑影响了多行");
     const task = await this.getById(taskId);
@@ -197,16 +201,31 @@ export class TaskRepository {
     const taskId = parseTaskId(id);
     const target = listId === null ? null : parseListId(listId);
     const result = await (await this.database()).execute(
-      "UPDATE tasks SET updated_at = CASE WHEN list_id IS ? THEN updated_at ELSE ? END, list_id = ? WHERE id = ?",
+      "UPDATE tasks SET updated_at = CASE WHEN list_id IS ? THEN updated_at ELSE ? END, list_id = ? WHERE id = ? AND deleted_at IS NULL",
       [target, this.timestamp(), target, taskId],
     );
     if (result.rowsAffected === 0) throw new TaskNotFoundError(taskId);
     if (result.rowsAffected !== 1) throw new Error("任务移动影响了多行");
   }
 
+  async trash(id: number): Promise<void> {
+    const taskId = parseTaskId(id);
+    const now = this.timestamp();
+    const result = await (await this.database()).execute("UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", [now, now, taskId]);
+    if (result.rowsAffected !== 1) throw new TaskNotFoundError(taskId);
+    await this.command("reconcile_reminders").catch(() => console.error("REMINDER_WAKE_FAILED"));
+  }
+
+  async restore(id: number): Promise<void> {
+    const taskId = parseTaskId(id);
+    const result = await (await this.database()).execute("UPDATE tasks SET deleted_at = NULL, updated_at = ? WHERE id = ? AND deleted_at IS NOT NULL", [this.timestamp(), taskId]);
+    if (result.rowsAffected !== 1) throw new TaskNotFoundError(taskId);
+    await this.command("reconcile_reminders").catch(() => console.error("REMINDER_WAKE_FAILED"));
+  }
+
   async delete(id: number): Promise<void> {
     const taskId = parseTaskId(id);
-    const result = await (await this.database()).execute("DELETE FROM tasks WHERE id = ?", [taskId]);
+    const result = await (await this.database()).execute("DELETE FROM tasks WHERE id = ? AND deleted_at IS NOT NULL", [taskId]);
     if (result.rowsAffected === 0) throw new TaskNotFoundError(taskId);
     if (result.rowsAffected !== 1) throw new Error("任务删除影响了多行");
     // SQL already committed: a lost wake must not offer a duplicate delete retry.

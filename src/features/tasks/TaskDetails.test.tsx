@@ -8,7 +8,7 @@ import type { Task } from "@/domain/task";
 import { toLocalInput } from "@/domain/taskDates";
 import { TaskDetails } from "./TaskDetails";
 
-vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { getById: vi.fn(), update: vi.fn(), updateStatus: vi.fn(), delete: vi.fn() } }));
+vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { getById: vi.fn(), update: vi.fn(), updateStatus: vi.fn(), trash: vi.fn(), delete: vi.fn() } }));
 vi.mock("@/features/tags/TaskTags", () => ({ TaskTags: () => <p>标签入口</p> }));
 vi.mock("@/features/reminders/TaskReminders", () => ({ TaskReminders: () => <p>提醒入口</p> }));
 const task: Task = { id: 1, listId: null, title: "原始标题", notes: "原始备注", dueAt: null, status: "todo", completedAt: null, sortOrder: 0, createdAt: "2026-10-04T00:00:00.000Z", updatedAt: "2026-10-04T00:00:00.000Z" };
@@ -37,19 +37,15 @@ it("saves a dirty wide inspector before an outside click continues", async () =>
   await waitFor(() => expect(closed).toHaveBeenCalledOnce());
   await waitFor(() => expect(outsideClick).toHaveBeenCalledOnce());
 });
-it("offers real status and permanent delete actions in the inspector", async () => {
+it("offers status and move-to-trash actions in the inspector", async () => {
   vi.mocked(taskRepository.updateStatus).mockResolvedValue();
-  vi.mocked(taskRepository.delete).mockResolvedValue();
+  vi.mocked(taskRepository.trash).mockResolvedValue();
   const { closed } = setup();
   fireEvent.click(await screen.findByRole("checkbox", { name: "完成任务" }));
   await waitFor(() => expect(taskRepository.updateStatus).toHaveBeenCalledWith(1, "completed"));
-  fireEvent.click(screen.getByRole("button", { name: "永久删除任务" }));
-  await screen.findByText("任务及关联的标签关系、提醒将被删除，此操作无法撤销。未保存的任务输入也会丢失。");
-  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  fireEvent.click(screen.getByRole("button", { name: "移入回收站" }));
+  await waitFor(() => expect(taskRepository.trash).toHaveBeenCalledWith(1));
   expect(taskRepository.delete).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "永久删除任务" }));
-  fireEvent.click(await screen.findByRole("button", { name: "永久删除" }));
-  await waitFor(() => expect(taskRepository.delete).toHaveBeenCalledWith(1));
   await waitFor(() => expect(closed).toHaveBeenCalledOnce());
 });
 it("preserves drafts on failure/refetch, guards IME and duplicate submissions, traps/returns focus", async () => {
@@ -68,12 +64,12 @@ it("preserves drafts on failure/refetch, guards IME and duplicate submissions, t
   await act(async () => { await client.refetchQueries({ type: "active" }); });
   expect((title as HTMLInputElement).value).toBe("中文草稿"); expect((screen.getByLabelText("备注") as HTMLTextAreaElement).value).toBe("多行\n纯文本");
   vi.mocked(taskRepository.update).mockRejectedValueOnce(new Error("database locked"));
-  fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   await screen.findByText("保存失败，草稿已保留。请重试。");
   expect(closed).not.toHaveBeenCalled();
   expect((title as HTMLInputElement).value).toBe("中文草稿");
   vi.mocked(taskRepository.update).mockResolvedValue({ ...task, title: "中文草稿", notes: "多行\n纯文本" });
-  fireEvent.click(screen.getByRole("button", { name: "关闭任务详情" }));
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(returnTo));
   returnTo.remove();
@@ -109,4 +105,18 @@ it("shows minute precision, opens the picker on click, and preserves untouched s
   fireEvent.change(screen.getByLabelText("任务标题"), { target: { value: "改名" } });
   fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
   await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ title: "改名", dueAt })));
+});
+
+it("clears recurrence while preserving the exact deadline", async () => {
+  const repeating = { ...task, dueAt: "2026-10-08T07:00:00.123Z", repeatRule: "day:2" };
+  vi.mocked(taskRepository.getById).mockResolvedValue(repeating);
+  vi.mocked(taskRepository.update).mockResolvedValue({ ...repeating, repeatRule: null });
+  setup();
+  const clear = await screen.findByRole("button", { name: "清除重复" });
+  expect(screen.getByText("重复：每2天")).toBeTruthy();
+  fireEvent.click(clear);
+  expect(screen.getByText("重复：无")).toBeTruthy();
+  expect((screen.getByLabelText("截止日期与时间（本地时间）") as HTMLInputElement).value).toBe(toLocalInput(repeating.dueAt).slice(0, 16));
+  fireEvent.submit(screen.getByRole("form", { name: "编辑任务" }));
+  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ dueAt: repeating.dueAt, repeatRule: null })));
 });

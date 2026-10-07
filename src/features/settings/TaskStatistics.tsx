@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import type { Task } from "@/domain/task";
 import { useTasks } from "@/features/tasks/queries";
 import { useLocalClock } from "@/features/tasks/useLocalClock";
+import { TaskCompletionHeatmap } from "./TaskCompletionHeatmap";
 
 export function summarizeTasks(tasks: Task[], now: Date) {
   const today = new Date(now);
@@ -33,6 +34,7 @@ export function TaskStatistics() {
   ];
   return <div className="mt-6 space-y-5">
     <p className="text-sm text-muted-foreground">统计当前保留的全部任务，包含收件箱和所有清单。</p>
+    <TaskCompletionHeatmap tasks={tasks.data} now={now} />
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {cards.map(card => <div key={card.label} className="rounded-xl border border-border bg-card p-4"><p className="text-sm text-muted-foreground">{card.label}</p><p className="mt-2 text-3xl font-semibold tabular-nums">{card.value}</p></div>)}
     </div>

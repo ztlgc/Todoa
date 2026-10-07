@@ -647,3 +647,20 @@ STEP 17 状态：已验收（开发 Gate）。STEP 22 发布 Gate 尚未通过�
 - `pnpm lint`、`pnpm test`（23 个文件、138 项）、`pnpm build`、`cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`、`cargo check --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc` 与 `cargo test --locked --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc`（34 项）均退出 0。
 - `pnpm tauri build --ci --bundles nsis --target x86_64-pc-windows-msvc` 退出 0；新安装包 `releases/v1.0.0/Todoa_1.0.0_x64-setup.exe` 长度 2,834,156 字节，ProductVersion 1.0.0，SHA-256 为 `e9aa3f08c3536c43cb30a958903e7ba1800a894a0d3f3860a1f765057d6c1626`，与构建输出一致。安装包未签名。
 - 本地安装包及其校验值已归档。1.0.0 安装后的操作、Windows 11、安装版通知和真实登录自启仍未验收。
+
+## 已完成与回收站（2026-10-07）
+
+- 任务侧栏底部提示已移除，新增“已完成”和“回收站”。已完成视图跨收件箱与所有清单读取已完成任务；普通删除操作直接移入回收站，永久删除确认只在回收站内出现，回收站支持恢复。
+- SQLite 新增版本 4 迁移和 `deleted_at`；普通任务查询排除回收站任务，回收站查询仅显示删除任务。提醒调度及任务状态、日期更新路径排除已删除任务。备份校验接受旧版本并验证新版迁移历史。
+- 浏览器调试页已实际验证新增、完成、移入回收站、恢复和永久删除确认；浏览器数据仍为临时会话。隔离内存 SQLite 验证版本 3→4 保留任务、标签及提醒，恢复后仍可读取，永久删除级联移除关联。前端构建、lint、全套 24 个文件的 143 项测试、`cargo fmt --check` 和 Windows x64 `cargo check --locked` 已通过。
+- 完整 Windows Rust 测试的链接阶段因本机低内存未完成；新桌面版安装包及安装后原生界面尚未验收。已发布的 1.0.0 安装包不包含本节改动。
+
+## 任务卡片与重复清除（2026-10-07）
+
+- 任务列表改为每项独立边框、四角圆角及卡片间距。详情截止时间输入框右侧提供“清空”，下方显示重复情况与“清除重复”。重复清除随详情保存，保留截止时间及已有提醒；清空截止时间仍停止重复。
+- 浏览器与桌面 SQLite 调度更新路径均支持清除重复，无需新增迁移。浏览器实际验证重复清除后时间及提醒保留、截止时间清空和完成后不生成下一项，截图：`docs/screenshots/task-cards-and-repeat-20261007.png`。
+- 相关 4 个测试文件合计 32 项通过（界面测试首次因 worker 启动超时失败，单文件重跑通过）；`pnpm lint`、`pnpm build`、Windows x64 `cargo check --locked` 通过。用当前迁移和实际更新 SQL 验证清除重复保留时间、偏移及提醒。尚未重新打包或进行安装版原生界面验收。
+
+## 1.0.1 版本号（2026-10-07）
+
+- 前端 package.json、Tauri 配置、Rust 包及 Cargo.lock 中 Todoa 的版本号统一为 1.0.1。尚未重新生成 1.0.1 安装包。

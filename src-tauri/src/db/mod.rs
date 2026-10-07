@@ -7,7 +7,7 @@ use tauri_plugin_sql::{DbInstances, DbPool, Migration, MigrationKind};
 pub mod backup;
 
 pub const DATABASE_URL: &str = "sqlite:todo.db";
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
 const APPLICATION_ID: i64 = 0x5754_4431;
 
 #[derive(Clone, Copy)]
@@ -47,6 +47,12 @@ pub fn plugin<R: Runtime>(
                     version: 3,
                     description: "task_priority",
                     sql: include_str!("../../migrations/0003_task_priority.sql"),
+                    kind: MigrationKind::Up,
+                },
+                Migration {
+                    version: 4,
+                    description: "task_trash",
+                    sql: include_str!("../../migrations/0004_task_trash.sql"),
                     kind: MigrationKind::Up,
                 },
             ],
@@ -214,7 +220,7 @@ async fn verify_pool(pool: &SqlitePool, expected_path: &Path) -> Result<(), &'st
     .fetch_one(pool)
     .await
     .map_err(|_| "MIGRATION_HISTORY_MISSING")?;
-    if migration_count != 3 {
+    if migration_count != 4 {
         return Err("MIGRATION_HISTORY_MISSING");
     }
 
@@ -228,6 +234,7 @@ async fn verify_pool(pool: &SqlitePool, expected_path: &Path) -> Result<(), &'st
         ("index", "idx_tasks_list"),
         ("index", "idx_tasks_status"),
         ("index", "idx_tasks_due"),
+        ("index", "idx_tasks_deleted_at"),
         ("index", "idx_task_tags_tag"),
         ("index", "idx_reminders_pending"),
         ("index", "idx_reminders_task"),

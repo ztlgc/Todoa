@@ -25,6 +25,7 @@ if args.step >= 15:
 if args.step >= 16:
     main.add("main-reminders")
     commands.update({'reminder_scheduler_status', 'create_reminder', 'edit_reminder', 'delete_reminder', 'update_task_status', 'reconcile_reminders'})
+    commands.update({'create_scheduled_task', 'update_task_schedule', 'create_quick_scheduled_task'})
 if args.step >= 18:
     main.add('main-backup-restore')
     commands.update({'backup_database', 'restore_database', 'restore_status'})

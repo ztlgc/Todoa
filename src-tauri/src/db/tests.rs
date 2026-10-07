@@ -47,6 +47,13 @@ fn current_migrator() -> Migrator {
                 include_str!("../../migrations/0003_task_priority.sql").into(),
                 false,
             ),
+            SqlxMigration::new(
+                4,
+                "task_trash".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0004_task_trash.sql").into(),
+                false,
+            ),
         ]),
         ..Migrator::DEFAULT
     }
@@ -263,7 +270,7 @@ fn preflight_rejects_unknown_future_and_bad_identity() {
         pool.execute("PRAGMA application_id=0x57544431")
             .await
             .unwrap();
-        pool.execute("PRAGMA user_version=4").await.unwrap();
+        pool.execute("PRAGMA user_version=5").await.unwrap();
         assert_eq!(check_existing_database(&path).await, Err("FUTURE_SCHEMA"));
         pool.execute("PRAGMA user_version=0").await.unwrap();
         assert_eq!(

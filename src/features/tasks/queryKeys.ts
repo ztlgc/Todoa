@@ -1,10 +1,11 @@
 import type { TaskStatus } from "@/domain/task";
 
 export interface TaskQueryScope {
-  view: "all" | "inbox" | "list" | "tag" | "today" | "upcoming";
+  view: "all" | "inbox" | "list" | "tag" | "today" | "upcoming" | "trash";
   listId?: number | null;
   tagId?: number;
   status?: TaskStatus;
+  deleted?: boolean;
   dateRange?: { from: string; to?: string };
 }
 
@@ -16,6 +17,7 @@ export const taskKeys = {
     listId: scope.listId,
     tagId: scope.tagId,
     status: scope.status,
+    deleted: scope.deleted,
     dateRange: scope.dateRange,
   }] as const,
   details: () => ["tasks", "details"] as const,

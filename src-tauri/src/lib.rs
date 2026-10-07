@@ -138,7 +138,7 @@ pub fn run() {
                 tauri::WebviewUrl::App("quick-add.html".into()),
             )
             .title("Todoa · 快速添加")
-            .inner_size(480.0, 180.0)
+            .inner_size(560.0, 280.0)
             .resizable(false)
             .visible(false)
             .focused(false)

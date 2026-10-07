@@ -34,7 +34,7 @@ pub async fn create(
     id(task_id)?;
     let time = future(value, now)?;
     let stamp = timestamp(now);
-    let result = sqlx::query("INSERT INTO reminders(task_id,remind_at,created_at,updated_at) SELECT id,?,?,? FROM tasks WHERE id=? AND status='todo'")
+    let result = sqlx::query("INSERT INTO reminders(task_id,remind_at,created_at,updated_at) SELECT id,?,?,? FROM tasks WHERE id=? AND status='todo' AND deleted_at IS NULL")
         .bind(time).bind(&stamp).bind(&stamp).bind(task_id).execute(pool).await.map_err(|_| "REMINDER_CREATE_FAILED")?;
     if result.rows_affected() != 1 {
         return Err("TASK_NOT_TODO");
@@ -49,7 +49,7 @@ pub async fn edit(
 ) -> Result<(), &'static str> {
     id(reminder_id)?;
     let time = future(value, now)?;
-    let result = sqlx::query("UPDATE reminders SET remind_at=?,updated_at=? WHERE id=? AND triggered_at IS NULL AND EXISTS(SELECT 1 FROM tasks WHERE tasks.id=reminders.task_id AND status='todo')")
+    let result = sqlx::query("UPDATE reminders SET remind_at=?,updated_at=? WHERE id=? AND triggered_at IS NULL AND EXISTS(SELECT 1 FROM tasks WHERE tasks.id=reminders.task_id AND status='todo' AND deleted_at IS NULL)")
         .bind(time).bind(timestamp(now)).bind(reminder_id).execute(pool).await.map_err(|_| "REMINDER_EDIT_FAILED")?;
     if result.rows_affected() != 1 {
         return Err("REMINDER_NOT_EDITABLE");
@@ -80,14 +80,16 @@ pub async fn update_status(
     }
     let mut tx = pool.begin().await.map_err(|_| "TASK_TRANSACTION_FAILED")?;
     let stamp = timestamp(now);
-    let was_todo: bool = sqlx::query_scalar::<_, String>("SELECT status FROM tasks WHERE id=?")
-        .bind(task_id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|_| "TASK_STATUS_FAILED")?
-        .ok_or("TASK_NOT_FOUND")?
+    let was_todo: bool = sqlx::query_scalar::<_, String>(
+        "SELECT status FROM tasks WHERE id=? AND deleted_at IS NULL",
+    )
+    .bind(task_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|_| "TASK_STATUS_FAILED")?
+    .ok_or("TASK_NOT_FOUND")?
         == "todo";
-    let result = sqlx::query("UPDATE tasks SET completed_at=CASE WHEN status=? THEN completed_at WHEN ?='completed' THEN ? ELSE NULL END,updated_at=CASE WHEN status=? THEN updated_at ELSE ? END,status=? WHERE id=?")
+    let result = sqlx::query("UPDATE tasks SET completed_at=CASE WHEN status=? THEN completed_at WHEN ?='completed' THEN ? ELSE NULL END,updated_at=CASE WHEN status=? THEN updated_at ELSE ? END,status=? WHERE id=? AND deleted_at IS NULL")
         .bind(status).bind(status).bind(&stamp).bind(status).bind(&stamp).bind(status).bind(task_id).execute(&mut *tx).await.map_err(|_| "TASK_STATUS_FAILED")?;
     if result.rows_affected() != 1 {
         return Err("TASK_NOT_FOUND");
@@ -111,7 +113,7 @@ pub struct Pending {
     pub title: String,
 }
 pub async fn pending(pool: &SqlitePool) -> Result<Vec<Pending>, sqlx::Error> {
-    let rows = sqlx::query("SELECT r.id,r.remind_at,t.title FROM reminders r JOIN tasks t ON t.id=r.task_id WHERE r.triggered_at IS NULL AND t.status='todo' ORDER BY r.remind_at,r.id").fetch_all(pool).await?;
+    let rows = sqlx::query("SELECT r.id,r.remind_at,t.title FROM reminders r JOIN tasks t ON t.id=r.task_id WHERE r.triggered_at IS NULL AND t.status='todo' AND t.deleted_at IS NULL ORDER BY r.remind_at,r.id").fetch_all(pool).await?;
     Ok(rows
         .into_iter()
         .map(|r| Pending {

@@ -4,7 +4,7 @@ import { isBrowserDebug } from "@/app/browserDebug";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListValidationError, parseListName, type TaskList } from "@/domain/list";
-import { TaskListView } from "@/features/tasks/Inbox";
+import { TaskListView, TrashView } from "@/features/tasks/Inbox";
 import { useCreateList, useDeleteList, useLists, useRenameList } from "./queries";
 import { TagSidebar } from "@/features/tags/TagSidebar";
 import { useTags, useTaskTags } from "@/features/tags/queries";
@@ -14,7 +14,7 @@ import { BackupRestorePanel } from "@/features/settings/BackupRestorePanel";
 import { AutostartSettings } from "@/features/settings/AutostartSettings";
 import { TaskStatistics } from "@/features/settings/TaskStatistics";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
-import { BarChart3, CalendarDays, CalendarClock, CalendarCheck2, Database, Info, Inbox, List, ListTodo, MoreHorizontal, Plus, Settings2, SlidersHorizontal, Tags } from "lucide-react";
+import { BarChart3, CalendarDays, CalendarClock, CalendarCheck2, CheckCheck, Database, Info, Inbox, List, ListTodo, MoreHorizontal, Plus, Settings2, SlidersHorizontal, Tags, Trash2 } from "lucide-react";
 import { CalendarView } from "@/features/calendar/CalendarView";
 
 function nameError(cause: unknown) {
@@ -88,7 +88,7 @@ function ListControls({ list, onDeleted, onDraftChange, onBusyChange, beforeDele
   </div>;
 }
 
-type View = "inbox" | "today" | "upcoming" | "calendar" | "lists" | "list" | "tags" | "settings";
+type View = "inbox" | "today" | "upcoming" | "calendar" | "lists" | "list" | "tags" | "completed" | "trash" | "settings";
 type SettingsGroup = "general" | "statistics" | "data" | "about";
 export function ListsWorkspace() {
   const lists = useLists(), create = useCreateList(), tags = useTags(), taskTags = useTaskTags();
@@ -163,15 +163,18 @@ export function ListsWorkspace() {
         {lists.isError && <p role="alert">清单读取失败。<Button onClick={() => void lists.refetch()}>重试清单</Button></p>}
       </div>
       <div hidden={activeView === "settings"}><TagSidebar selectedId={selectedTag?.id ?? null} onSelect={id => navigate("tags", null, id)} onDeleted={id => setSelectedTagId(current => current === id ? null : current)} /></div>
-      <p className="border-t pt-3 text-xs text-muted-foreground">{isBrowserDebug() ? "浏览器临时数据，刷新后清空" : "任务保存在此电脑"}</p>
+      {activeView !== "settings" && <nav aria-label="任务归档" className="space-y-1 border-t border-border pt-3">
+        <Button className="w-full justify-start" variant={activeView === "completed" ? "secondary" : "ghost"} aria-current={activeView === "completed" ? "page" : undefined} aria-label="打开已完成" onClick={() => void navigate("completed")}><CheckCheck aria-hidden="true" className="size-4 shrink-0" />已完成</Button>
+        <Button className="w-full justify-start" variant={activeView === "trash" ? "secondary" : "ghost"} aria-current={activeView === "trash" ? "page" : undefined} aria-label="打开回收站" onClick={() => void navigate("trash")}><Trash2 aria-hidden="true" className="size-4 shrink-0" />回收站</Button>
+      </nav>}
     </aside>}
     <div className="min-w-0 space-y-5">
       {activeView !== "calendar" && <Button ref={sidebarTrigger} variant="outline" className="md:hidden" onClick={() => setSidebarOpen(true)}>打开{activeView === "settings" ? "设置分组" : "任务视图"}</Button>}
-      {activeView === "settings" ? <section aria-labelledby="inbox-heading"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">{settingsGroup === "general" ? "常规" : settingsGroup === "statistics" ? "统计" : settingsGroup === "data" ? "数据" : "关于"}</h1>{settingsGroup === "general" ? <AutostartSettings /> : settingsGroup === "statistics" ? <TaskStatistics /> : settingsGroup === "data" ? <BackupRestorePanel /> : <p className="mt-4 text-sm">Todoa 版本：{version ?? "读取中…"}</p>}</section> : activeView === "calendar" ? <CalendarView lists={lists.data ?? []} listsUnavailable={!lists.isSuccess} tags={tags.data ?? []} taskTags={taskTags.data ?? []} tagsUnavailable={!tags.isSuccess || !taskTags.isSuccess} onDetailDirtyChange={value => { detailDirty.current = value; }} /> : activeView === "lists" ? <section aria-labelledby="inbox-heading" className="space-y-5"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">清单</h1><p className="text-sm text-muted-foreground">在左侧创建清单，打开清单后可重命名或删除。</p>{lists.data?.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center">还没有清单</p>}<div className="grid gap-3 sm:grid-cols-2">{lists.data?.map(list => <Button key={list.id} variant="outline" className="h-auto justify-start whitespace-normal break-all p-4 text-left" onClick={() => navigate("list", list.id)}>{list.name}</Button>)}</div></section> : activeView === "tags" && !selectedTag ? <section aria-labelledby="inbox-heading" className="space-y-5"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">标签</h1><p className="text-sm text-muted-foreground">创建标签，或选中标签查看已关联的任务。任务详情中可分配和移除标签。</p>{tags.isSuccess && tags.data.length === 0 && <p className="rounded-xl border border-dashed p-8">还没有标签</p>}</section> : <>
+      {activeView === "settings" ? <section aria-labelledby="inbox-heading"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">{settingsGroup === "general" ? "常规" : settingsGroup === "statistics" ? "统计" : settingsGroup === "data" ? "数据" : "关于"}</h1>{settingsGroup === "general" ? <AutostartSettings /> : settingsGroup === "statistics" ? <TaskStatistics /> : settingsGroup === "data" ? <BackupRestorePanel /> : <p className="mt-4 text-sm">Todoa 版本：{version ?? "读取中…"}</p>}</section> : activeView === "calendar" ? <CalendarView lists={lists.data ?? []} listsUnavailable={!lists.isSuccess} tags={tags.data ?? []} taskTags={taskTags.data ?? []} tagsUnavailable={!tags.isSuccess || !taskTags.isSuccess} onDetailDirtyChange={value => { detailDirty.current = value; }} /> : activeView === "trash" ? <TrashView /> : activeView === "lists" ? <section aria-labelledby="inbox-heading" className="space-y-5"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">清单</h1><p className="text-sm text-muted-foreground">在左侧创建清单，打开清单后可重命名或删除。</p>{lists.data?.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center">还没有清单</p>}<div className="grid gap-3 sm:grid-cols-2">{lists.data?.map(list => <Button key={list.id} variant="outline" className="h-auto justify-start whitespace-normal break-all p-4 text-left" onClick={() => navigate("list", list.id)}>{list.name}</Button>)}</div></section> : activeView === "tags" && !selectedTag ? <section aria-labelledby="inbox-heading" className="space-y-5"><h1 id="inbox-heading" tabIndex={-1} className="text-3xl font-semibold outline-none">标签</h1><p className="text-sm text-muted-foreground">创建标签，或选中标签查看已关联的任务。任务详情中可分配和移除标签。</p>{tags.isSuccess && tags.data.length === 0 && <p className="rounded-xl border border-dashed p-8">还没有标签</p>}</section> : <>
         {taskTags.isError && <p role="alert">任务标签读取失败。<Button onClick={() => void taskTags.refetch()}>重试任务标签</Button></p>}
-        <TaskListView key={`${activeView}-${selected?.id ?? "inbox"}-${selectedTag?.id ?? "none"}`} name={activeView === "today" ? "今天" : activeView === "upcoming" ? "即将到来" : activeView === "tags" ? `标签：${selectedTag?.name}` : activeView === "list" ? selected?.name ?? "清单" : "收件箱"}
+        <TaskListView key={`${activeView}-${selected?.id ?? "inbox"}-${selectedTag?.id ?? "none"}`} name={activeView === "completed" ? "已完成" : activeView === "today" ? "今天" : activeView === "upcoming" ? "即将到来" : activeView === "tags" ? `标签：${selectedTag?.name}` : activeView === "list" ? selected?.name ?? "清单" : "收件箱"}
           listId={activeView === "inbox" ? null : activeView === "list" ? selected?.id : undefined} tagId={activeView === "tags" ? selectedTag?.id : undefined}
-          dateFilters={activeView === "today" ? { dateView: "today", dateRange: range } : activeView === "upcoming" ? { dateView: "upcoming", dateRange: { from: range.to } } : undefined}
+          dateFilters={activeView === "completed" ? { status: "completed" } : activeView === "today" ? { dateView: "today", dateRange: range } : activeView === "upcoming" ? { dateView: "upcoming", dateRange: { from: range.to } } : undefined}
           lists={lists.data ?? []} listsUnavailable={!lists.isSuccess} tags={tags.data ?? []} taskTags={taskTags.data ?? []} tagsUnavailable={!tags.isSuccess || !taskTags.isSuccess} now={now}
           initialDraft={taskDraft} onDraftChange={(value, text) => { taskDirty.current = value; setTaskDraft(text); }} onDetailDirtyChange={value => { detailDirty.current = value; }} onBusyChange={value => { childBusy.current = value; }} />
       </>}

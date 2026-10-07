@@ -161,6 +161,7 @@ export function parseNaturalTaskInput(input: string, now = new Date()): NaturalT
     if (repeatRule.startsWith("year-date:")) { const [, month, day] = repeatRule.split(":").map(Number); due = nearestDay(month, day, now); if (due && due <= now) due = nearestDay(month, day, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)); }
   }
   const title = rest.replace(/^[\s,，、]+|[\s,，、]+$/g, "").replace(/\s+/g, " ");
+  if (due && /提醒我/.test(rest)) offsets.push(0);
   const reminderOffsets = [...new Set(offsets)];
   const remindAt = due ? reminderOffsets.map(minutes => new Date(due!.getTime() - minutes * 60000).toISOString()) : [];
   return { title, dueAt: due?.toISOString() ?? null, matchedText, label: due ? label(due) : null, repeatText, repeatRule, remindAt, reminderOffsets };

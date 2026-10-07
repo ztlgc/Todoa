@@ -5,8 +5,8 @@ commands.allow = ["show_quick_add"]
 
 [[permission]]
 identifier = "quick-create-task"
-description = "Quick Add may create an Inbox task using only a validated title."
-commands.allow = ["create_quick_task"]
+description = "Quick Add may create validated Inbox tasks with optional dates, recurrence and reminders."
+commands.allow = ["create_quick_task", "create_quick_scheduled_task"]
 
 [[permission]]
 identifier = "quick-hide-window"

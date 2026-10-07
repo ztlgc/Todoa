@@ -64,6 +64,13 @@ async fn database(root: &Path, title: &str) -> SqlitePool {
                 include_str!("../../../migrations/0003_task_priority.sql").into(),
                 false,
             ),
+            Migration::new(
+                4,
+                "task_trash".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0004_task_trash.sql").into(),
+                false,
+            ),
         ]),
         ..Migrator::DEFAULT
     }
@@ -177,7 +184,7 @@ fn rejects_corruption_identity_future_history_schema_foreign_keys_and_sidecars()
         snapshot(&pool, &pristine).await.unwrap();
         for (sql, expected) in [
             ("PRAGMA application_id=1", "BACKUP_ID_MISMATCH"),
-            ("PRAGMA user_version=4", "BACKUP_FUTURE_SCHEMA"),
+            ("PRAGMA user_version=5", "BACKUP_FUTURE_SCHEMA"),
             ("PRAGMA user_version=0", "BACKUP_UNSUPPORTED_SCHEMA"),
             ("DELETE FROM _sqlx_migrations", "BACKUP_MIGRATION_HISTORY"),
             (

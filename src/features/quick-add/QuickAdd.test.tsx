@@ -14,6 +14,24 @@ afterEach(cleanup);
 function draft(value: string) { fireEvent.change(screen.getByLabelText("任务标题"), { target: { value } }); }
 function submit() { fireEvent.submit(screen.getByRole("form", { name: "快速新增任务" })); }
 
+it("shows the same recognition controls as Inbox and submits the selected interpretation", async () => {
+  vi.mocked(invoke).mockResolvedValue(1);
+  render(<QuickAdd />);
+  const original = "每天明天下午3点提醒我开会";
+  draft(original);
+  expect(screen.getByText("重复：每天")).toBeTruthy();
+  expect(screen.getByText(/^提醒：/).textContent).not.toBe("提醒：无");
+  submit();
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_quick_scheduled_task", { input: expect.objectContaining({ title: "提醒我开会", repeatRule: "day:1", reminderOffsets: [0] }) }));
+  await waitFor(() => expect((screen.getByLabelText("任务标题") as HTMLInputElement).value).toBe(""));
+  draft(original);
+  fireEvent.click(screen.getByRole("button", { name: "保留原文" }));
+  expect(screen.getByText("日期：已保留原文")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "重新识别日期" })).toBeTruthy();
+  submit();
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("create_quick_task", { title: original }));
+});
+
 it("rejects invalid Unicode, NUL, blank and overlong titles before invoking Rust", () => {
   render(<QuickAdd />);
   for (const value of ["  ", "a\0b", "a\ud800", "🦀".repeat(501)]) {

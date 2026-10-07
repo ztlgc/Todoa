@@ -66,6 +66,14 @@ describe("natural task input", () => {
     expect(relative.remindAt).toEqual([relative.dueAt]);
     expect(Date.parse(relative.dueAt!) - now.getTime()).toBe(90 * 60000);
   });
+  it("creates a daily task with a reminder at the explicitly requested time", () => {
+    const result = parseNaturalTaskInput("每天明天早上十一点提醒我上班", now);
+    expect(result).toMatchObject({ title: "提醒我上班", repeatRule: "day:1", reminderOffsets: [0] });
+    expect(new Date(result.dueAt!).getDate()).toBe(6);
+    expect(new Date(result.dueAt!).getHours()).toBe(11);
+    expect(result.remindAt).toEqual([result.dueAt]);
+    expect(parseNaturalTaskInput("明天下午3点开会", now).remindAt).toEqual([]);
+  });
   it.each([
     ["分钟", 3], ["小时", 180], ["天", 4320], ["周", 30240],
   ])("uses a 3 %s advance reminder", (unit, minutes) => {

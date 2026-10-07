@@ -5,10 +5,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLocalQueryClient } from "@/app/queryClient";
 import { taskRepository } from "@/data/repositories/TaskRepository";
 import type { Task } from "@/domain/task";
-import { Inbox } from "./Inbox";
+import { fromLocalInput } from "@/domain/taskDates";
+import { Inbox, TrashView } from "./Inbox";
 
 vi.mock("@/data/repositories/TaskRepository", () => ({
-  taskRepository: { list: vi.fn(), create: vi.fn(), updateStatus: vi.fn(), delete: vi.fn() },
+  taskRepository: { list: vi.fn(), create: vi.fn(), update: vi.fn(), updateStatus: vi.fn(), trash: vi.fn(), restore: vi.fn(), delete: vi.fn(), getById: vi.fn() },
 }));
 const task: Task = {
   id: 1, listId: null, title: "Buy milk", notes: "", status: "todo",
@@ -36,7 +37,10 @@ beforeEach(() => {
     return created;
   });
   vi.mocked(taskRepository.updateStatus).mockImplementation(async (_id, status) => { rows = [{ ...task, status }]; });
+  vi.mocked(taskRepository.update).mockImplementation(async (id, input) => { rows = rows.map(row => row.id === id ? { ...row, ...input } : row); return rows.find(row => row.id === id)!; });
+  vi.mocked(taskRepository.getById).mockImplementation(async id => rows.find(row => row.id === id) ?? null);
   vi.mocked(taskRepository.delete).mockImplementation(async () => { rows = []; });
+  vi.mocked(taskRepository.trash).mockImplementation(async () => { rows = []; });
 });
 afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear()); });
 
@@ -75,6 +79,35 @@ it("shows the saved priority beneath the task and colors its checkbox", async ()
   expect(screen.getByRole("checkbox", { name: "完成：Buy milk" }).className).toContain("border-red-500");
 });
 
+it("opens a priority chooser and saves the selected priority immediately", async () => {
+  rows = [task];
+  renderInbox();
+  fireEvent.click(await screen.findByRole("button", { name: "更改优先级：无优先级" }));
+  fireEvent.click(await screen.findByRole("button", { name: "高优先级" }));
+  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, { priority: "high" }));
+  await screen.findByRole("button", { name: "更改优先级：高优先级" });
+});
+
+it("opens the native date and time picker from the task card", async () => {
+  rows = [task];
+  renderInbox();
+  const input = await screen.findByLabelText("截止时间：Buy milk") as HTMLInputElement;
+  const showPicker = vi.fn();
+  Object.defineProperty(input, "showPicker", { configurable: true, value: showPicker });
+  fireEvent.click(screen.getByRole("button", { name: "设置时间" }));
+  expect(showPicker).toHaveBeenCalledOnce();
+  fireEvent.change(input, { target: { value: "2026-10-07T15:30" } });
+  await waitFor(() => expect(taskRepository.update).toHaveBeenCalledWith(1, { dueAt: fromLocalInput("2026-10-07T15:30") }));
+});
+
+it("opens task details when clicking the task card body", async () => {
+  rows = [task];
+  renderInbox();
+  const card = await screen.findByText("Buy milk").then(element => element.closest("li")!);
+  fireEvent.click(card, { clientX: 8, clientY: 8 });
+  await screen.findByLabelText("任务标题");
+});
+
 it("does not submit during IME composition", async () => {
   renderInbox();
   await screen.findByText("收件箱为空");
@@ -105,7 +138,7 @@ it("prevents duplicate pending submits and preserves draft on write failure", as
   expect(screen.queryByText("Keep this draft")).toBeNull();
 });
 
-it("keeps completed tasks visible, supports undo and confirms permanent deletion", async () => {
+it("keeps completed tasks visible, supports undo and moves tasks to trash without confirmation", async () => {
   rows = [task];
   renderInbox();
   await screen.findByText("Buy milk");
@@ -114,28 +147,46 @@ it("keeps completed tasks visible, supports undo and confirms permanent deletion
   expect(screen.getByText("Buy milk")).toBeTruthy();
   fireEvent.click(screen.getByRole("checkbox", { name: "取消完成：Buy milk" }));
   await waitFor(() => expect(screen.queryByText("已完成")).toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "删除：Buy milk" }));
-  expect(taskRepository.delete).not.toHaveBeenCalled();
-  expect(screen.getByText("永久删除“Buy milk”？任务及关联的标签关系、提醒将被删除，此操作无法撤销。")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "取消" }));
-  expect(taskRepository.delete).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "删除：Buy milk" }));
-  fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
+  fireEvent.click(screen.getByRole("button", { name: "移入回收站：Buy milk" }));
   await screen.findByText("收件箱为空");
-  expect(taskRepository.delete).toHaveBeenCalledWith(1);
+  expect(taskRepository.trash).toHaveBeenCalledWith(1);
+  expect(taskRepository.delete).not.toHaveBeenCalled();
 });
 
 it("retains the task and current status after status/delete failures", async () => {
   rows = [task];
   vi.mocked(taskRepository.updateStatus).mockRejectedValue(new Error("write failed"));
-  vi.mocked(taskRepository.delete).mockRejectedValue(new Error("write failed"));
+  vi.mocked(taskRepository.trash).mockRejectedValue(new Error("write failed"));
   renderInbox();
   await screen.findByText("Buy milk");
   fireEvent.click(screen.getByRole("checkbox", { name: "完成：Buy milk" }));
   await screen.findByText("状态更改失败，请重试。");
   expect(screen.getByRole("checkbox").getAttribute("aria-checked")).toBe("false");
-  fireEvent.click(screen.getByRole("button", { name: "删除：Buy milk" }));
-  fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
+  fireEvent.click(screen.getByRole("button", { name: "移入回收站：Buy milk" }));
   await screen.findByText("删除失败，任务仍保留，请重试。");
   expect(screen.getByText("Buy milk")).toBeTruthy();
+});
+
+it("restores trashed tasks and confirms permanent deletion only in the trash", async () => {
+  let discarded = [{ ...task, deletedAt: "2026-10-05T00:00:00.000Z" }];
+  vi.mocked(taskRepository.list).mockImplementation(async filters => filters?.deleted ? [...discarded] : []);
+  vi.mocked(taskRepository.restore).mockImplementation(async () => { discarded = []; });
+  vi.mocked(taskRepository.delete).mockImplementation(async () => { discarded = []; });
+  const client = createLocalQueryClient(); clients.push(client);
+  render(<QueryClientProvider client={client}><TrashView /></QueryClientProvider>);
+  await screen.findByText("Buy milk");
+  fireEvent.click(screen.getByRole("button", { name: "恢复" }));
+  await screen.findByText("回收站为空");
+  expect(taskRepository.restore).toHaveBeenCalledWith(1);
+  discarded = [{ ...task, deletedAt: "2026-10-05T00:00:00.000Z" }];
+  await act(async () => { await client.invalidateQueries(); });
+  await screen.findByText("Buy milk");
+  fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
+  expect(taskRepository.delete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  expect(taskRepository.delete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认永久删除" }));
+  await screen.findByText("回收站为空");
+  expect(taskRepository.delete).toHaveBeenCalledWith(1);
 });

@@ -26,6 +26,8 @@ pub struct ScheduledUpdate {
     pub due_at: Option<String>,
     pub has_list: bool,
     pub has_due: bool,
+    #[serde(default)]
+    pub clear_repeat: bool,
     pub priority: Option<String>,
 }
 fn valid_priority(value: &str) -> bool {
@@ -186,18 +188,20 @@ pub async fn update(
         })
         .transpose()?;
     let mut tx = pool.begin().await.map_err(|_| "TASK_TRANSACTION_FAILED")?;
-    let row = sqlx::query("SELECT status,due_at,reminder_offsets FROM tasks WHERE id=?")
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|_| "TASK_UPDATE_FAILED")?
-        .ok_or("TASK_NOT_FOUND")?;
+    let row = sqlx::query(
+        "SELECT status,due_at,reminder_offsets FROM tasks WHERE id=? AND deleted_at IS NULL",
+    )
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|_| "TASK_UPDATE_FAILED")?
+    .ok_or("TASK_NOT_FOUND")?;
     let previous: Option<String> = row.get("due_at");
     let changed = input.has_due && due != previous;
     let stamp_now = crate::services::reminders::timestamp(now);
-    sqlx::query("UPDATE tasks SET title=COALESCE(?,title),notes=COALESCE(?,notes),list_id=CASE WHEN ? THEN ? ELSE list_id END,due_at=CASE WHEN ? THEN ? ELSE due_at END,repeat_rule=CASE WHEN ? AND ? IS NULL THEN NULL ELSE repeat_rule END,reminder_offsets=CASE WHEN ? AND ? IS NULL THEN '[]' ELSE reminder_offsets END,priority=COALESCE(?,priority),updated_at=? WHERE id=?")
+    sqlx::query("UPDATE tasks SET title=COALESCE(?,title),notes=COALESCE(?,notes),list_id=CASE WHEN ? THEN ? ELSE list_id END,due_at=CASE WHEN ? THEN ? ELSE due_at END,repeat_rule=CASE WHEN ? OR (? AND ? IS NULL) THEN NULL ELSE repeat_rule END,reminder_offsets=CASE WHEN ? AND ? IS NULL THEN '[]' ELSE reminder_offsets END,priority=COALESCE(?,priority),updated_at=? WHERE id=? AND deleted_at IS NULL")
         .bind(input.title.map(|s| s.trim().to_string())).bind(input.notes).bind(input.has_list).bind(input.list_id)
-        .bind(input.has_due).bind(&due).bind(input.has_due).bind(&due).bind(input.has_due).bind(&due)
+        .bind(input.has_due).bind(&due).bind(input.clear_repeat).bind(input.has_due).bind(&due).bind(input.has_due).bind(&due)
         .bind(input.priority).bind(&stamp_now).bind(id).execute(&mut *tx).await.map_err(|_| "TASK_UPDATE_FAILED")?;
     if changed {
         sqlx::query(
@@ -439,6 +443,7 @@ mod tests {
                     due_at: Some("2026-10-05T08:00:00.000Z".into()),
                     has_list: false,
                     has_due: true,
+                    clear_repeat: false,
                     priority: None,
                 },
                 now,

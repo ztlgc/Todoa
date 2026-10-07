@@ -12,7 +12,7 @@ function localTime(value:string) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 }
 export function TaskReminders({task,disabled,onDraftChange,onBusyChange,onRegisterDraftSave}:{task:Task;disabled:boolean;onDraftChange?:(dirty:boolean)=>void;onBusyChange?:(busy:boolean)=>void;onRegisterDraftSave?:(save:(()=>Promise<boolean>)|null)=>void}) {
-  return <div className="space-y-2 pl-7"><h4 className="text-sm font-medium">提醒</h4><ReminderPanel task={task} disabled={disabled} onDraftChange={onDraftChange} onBusyChange={onBusyChange} onRegisterDraftSave={onRegisterDraftSave}/></div>;
+  return <div className="space-y-2"><h4 className="text-sm font-medium">提醒</h4><ReminderPanel task={task} disabled={disabled} onDraftChange={onDraftChange} onBusyChange={onBusyChange} onRegisterDraftSave={onRegisterDraftSave}/></div>;
 }
 function NotificationNotice() {
   const status=useSchedulerStatus();
