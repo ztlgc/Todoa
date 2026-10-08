@@ -44,6 +44,7 @@ fn stamp(date: DateTime<Utc>) -> String {
     date.to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 fn valid_rule(rule: &str) -> bool {
+    if rule.starts_with('{') { return super::recurrence::parse(rule).is_some(); }
     if matches!(rule, "week-monday" | "weekday" | "weekend" | "month-last") {
         return true;
     }
@@ -309,7 +310,7 @@ fn days_in_month(year: i32, month: u32) -> u32 {
         .expect("previous day")
         .day()
 }
-fn local_time(naive: NaiveDateTime) -> DateTime<Utc> {
+pub(super) fn local_time(naive: NaiveDateTime) -> DateTime<Utc> {
     let resolved = match Local.from_local_datetime(&naive) {
         LocalResult::Single(date) => date,
         LocalResult::Ambiguous(earlier, _) => earlier,
@@ -324,6 +325,7 @@ fn local_time(naive: NaiveDateTime) -> DateTime<Utc> {
     resolved.with_timezone(&Utc)
 }
 pub fn next_due(prior: DateTime<Utc>, rule: &str, after: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    if rule.starts_with('{') { return super::recurrence::next(prior, &super::recurrence::parse(rule)?, after); }
     let local = prior.with_timezone(&Local);
     let mut date = local.date_naive();
     let clock = local.time();
@@ -424,12 +426,17 @@ pub async fn create_next(
         .map_err(|_| "INVALID_DUE_TIME")?
         .with_timezone(&Utc);
     let after = DateTime::from_timestamp_millis(now).ok_or("INVALID_DUE_TIME")?;
-    let next = next_due(prior, &rule, after).ok_or("INVALID_REPEAT_RULE")?;
+    let next = match next_due(prior, &rule, after) {
+        Some(next) => next,
+        None if super::recurrence::parse(&rule).is_some() => return Ok(()),
+        None => return Err("INVALID_REPEAT_RULE"),
+    };
+    let next_rule = super::recurrence::advance(&rule);
     let created = crate::services::reminders::timestamp(now);
     let offsets: String = row.get("reminder_offsets");
     let result = sqlx::query("INSERT INTO tasks(title,list_id,notes,due_at,repeat_rule,reminder_offsets,priority,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
         .bind(row.get::<String,_>("title")).bind(row.get::<Option<i64>,_>("list_id")).bind(row.get::<String,_>("notes"))
-        .bind(if date_only.is_some() {None} else {Some(stamp(next))}).bind(&rule).bind(&offsets).bind(row.get::<String,_>("priority")).bind(row.get::<i64,_>("sort_order")).bind(&created).bind(&created)
+        .bind(if date_only.is_some() {None} else {Some(stamp(next))}).bind(&next_rule).bind(&offsets).bind(row.get::<String,_>("priority")).bind(row.get::<i64,_>("sort_order")).bind(&created).bind(&created)
         .execute(&mut **tx).await.map_err(|_| "TASK_CREATE_FAILED")?;
     let new_id = result.last_insert_rowid();
     sqlx::query("UPDATE tasks SET content_json=?,due_date=? WHERE id=?")

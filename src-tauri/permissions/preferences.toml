@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "main-preferences"
+description = "Main reads and saves validated local preferences and sends a fixed test notification"
+commands.allow = ["get_app_preferences", "set_app_preferences", "test_system_notification"]

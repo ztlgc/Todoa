@@ -2,6 +2,40 @@ use super::*;
 use std::sync::{atomic::AtomicI64, Mutex as StdMutex};
 use tempfile::TempDir;
 struct FakeClock(AtomicI64);
+struct PausableNotification {
+    enabled: AtomicBool,
+    outlet: Arc<FakeNotification>,
+}
+impl Notification for PausableNotification {
+    fn enabled(&self) -> bool {
+        self.enabled.load(Ordering::SeqCst)
+    }
+    fn send(&self, row: &Pending) -> Result<(), &'static str> {
+        self.outlet.send(row)
+    }
+}
+#[test]
+fn pausing_preserves_due_reminder_and_resume_delivers_once() {
+    tauri::async_runtime::block_on(async {
+        let (_dir, pool, clock, outlet, _s, task) = fixture().await;
+        let row = add(&pool, task, 1000).await;
+        clock.0.store(NOW + 1000, Ordering::SeqCst);
+        let notification = Arc::new(PausableNotification {
+            enabled: AtomicBool::new(false),
+            outlet: outlet.clone(),
+        });
+        let scheduler = Scheduler::new(pool.clone(), clock, notification.clone());
+        assert_eq!(scheduler.reconcile().await.unwrap(), (30_000, false));
+        assert!(!marked(&pool, row).await);
+        assert!(outlet.calls.lock().unwrap().is_empty());
+        notification.enabled.store(true, Ordering::SeqCst);
+        scheduler.reconcile().await.unwrap();
+        assert!(marked(&pool, row).await);
+        scheduler.reconcile().await.unwrap();
+        assert_eq!(outlet.calls.lock().unwrap().len(), 1);
+        pool.close().await;
+    });
+}
 impl Clock for FakeClock {
     fn now(&self) -> i64 {
         self.0.load(Ordering::SeqCst)

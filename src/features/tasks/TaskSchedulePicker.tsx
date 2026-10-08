@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,11 +11,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { Task, UpdateTaskInput } from "@/domain/task";
 import { fromLocalInput, toLocalInput } from "@/domain/taskDates";
 import { repeatRuleLabel } from "@/domain/naturalTaskInput";
-import { TaskReminders } from "@/features/reminders/TaskReminders";
+import { CustomRepeatDialog } from "./CustomRepeatDialog";
+import { isRecurrenceRule, parseRecurrence } from "@/domain/recurrence";
 
 const key = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -39,7 +41,19 @@ export function TaskSchedulePicker({
 }) {
   const initial = toLocalInput(task.dueAt);
   const [date, setDate] = useState(task.dueDate ?? initial.slice(0, 10));
-  const [time, setTime] = useState(initial.slice(11, 16));
+  const [time, setTime] = useState(initial.slice(11, 16) || "09:00");
+  const [timeOpen, setTimeOpen] = useState(false);
+  const [draftTime, setDraftTime] = useState("09:00");
+  const hourColumn = useRef<HTMLDivElement>(null);
+  const minuteColumn = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!timeOpen) return;
+    [hourColumn, minuteColumn].forEach((column, part) => {
+      if (column.current) {
+        column.current.scrollTop = Math.max(0, Math.floor(Number(draftTime.split(":")[part]) / 3) * 36 - 72);
+      }
+    });
+  }, [timeOpen, draftTime]);
   const [month, setMonth] = useState(
     () =>
       new Date(
@@ -51,12 +65,8 @@ export function TaskSchedulePicker({
   const [custom, setCustom] = useState("1");
   const [customUnit, setCustomUnit] = useState("hour");
   const [customRepeatOpen, setCustomRepeatOpen] = useState(false);
-  const [repeatInterval, setRepeatInterval] = useState("1");
-  const [repeatUnit, setRepeatUnit] = useState("day");
-  const [repeatError, setRepeatError] = useState<string>();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState<string>();
-  const [manual, setManual] = useState(false);
   const first = new Date(month.getFullYear(), month.getMonth(), 1, 12),
     start = (first.getDay() + 6) % 7;
   const cells = Array.from(
@@ -78,6 +88,13 @@ export function TaskSchedulePicker({
         throw new Error("请先选择日期。");
       if (!clear && offsets.length && !time)
         throw new Error("设置提醒前，请明确选择时间。");
+      let nextRule = repeat || null;
+      const structured = parseRecurrence(repeat);
+      if (!clear && structured && date !== (task.dueDate ?? initial.slice(0, 10))) {
+        const moved = { ...structured, anchor: date };
+        if (!isRecurrenceRule(moved)) throw new Error("日期已改变，请重新核对自定义重复的日期和结束条件。");
+        nextRule = JSON.stringify(moved);
+      }
       const dueAt =
         clear || !date || !time
           ? null
@@ -93,7 +110,7 @@ export function TaskSchedulePicker({
       await onSave({
         dueAt,
         dueDate: clear || !date || time ? null : date,
-        repeatRule: clear ? null : repeat || null,
+        repeatRule: clear ? null : nextRule,
         reminderOffsets: clear ? [] : offsets,
       });
       onClosed();
@@ -111,13 +128,7 @@ export function TaskSchedulePicker({
     setDate(key(d));
     setMonth(d);
   }
-  function openCustomRepeat() {
-    const match = /^(day|week|month|year):(\d+)$/.exec(repeat);
-    setRepeatUnit(match?.[1] ?? "day");
-    setRepeatInterval(match?.[2] ?? "1");
-    setRepeatError(undefined);
-    setCustomRepeatOpen(true);
-  }
+  function openCustomRepeat() { setCustomRepeatOpen(true); }
   return (
     <Dialog
       open
@@ -126,7 +137,7 @@ export function TaskSchedulePicker({
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-[340px]"
+        className="max-h-[94dvh] gap-2 overflow-y-auto p-3 sm:max-w-[304px]"
         showCloseButton={!busy}
       >
         <DialogTitle className="text-center text-sm">日期与提醒</DialogTitle>
@@ -139,16 +150,16 @@ export function TaskSchedulePicker({
             <Button
               key={label}
               variant="ghost"
-              className="h-auto flex-col gap-1"
+              className="h-auto flex-col gap-0.5 px-3 py-1.5"
               disabled={busy}
               onClick={() => shortcut(n)}
             >
-              <Icon className="size-5" />
+              <Icon className="size-4" />
               <span className="text-xs">{label}</span>
             </Button>
           ))}
         </div>
-        <div className="-mt-2 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <span className="font-medium">
             {month.getFullYear()}年{month.getMonth() + 1}月
           </span>
@@ -181,7 +192,7 @@ export function TaskSchedulePicker({
             </Button>
           </div>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center text-sm">
+        <div className="grid grid-cols-7 gap-0.5 text-center text-xs">
           {["一", "二", "三", "四", "五", "六", "日"].map((d) => (
             <span key={d} className="py-1 text-xs text-muted-foreground">
               {d}
@@ -195,23 +206,30 @@ export function TaskSchedulePicker({
               aria-label={key(d)}
               aria-pressed={date === key(d)}
               onClick={() => setDate(key(d))}
-              className={`mx-auto size-8 rounded-full hover:bg-accent ${date === key(d) ? "bg-primary text-primary-foreground hover:bg-primary" : key(d) === key(new Date()) ? "bg-secondary font-semibold" : d.getMonth() !== month.getMonth() ? "text-muted-foreground/50" : ""}`}
+              className={`mx-auto size-6 rounded-full hover:bg-accent ${date === key(d) ? "bg-primary text-primary-foreground hover:bg-primary" : key(d) === key(new Date()) ? "bg-secondary font-semibold" : d.getMonth() !== month.getMonth() ? "text-muted-foreground/50" : ""}`}
             >
               {d.getDate()}
             </button>
           ))}
         </div>
-        <div className="space-y-3 border-t pt-3">
-          <label className="flex items-center gap-2 text-sm">
-            <Clock className="size-4" />
-            <input
-              className="h-8 min-w-0 flex-1 rounded-lg border px-2 text-sm"
-              type="time"
+        <div className="space-y-2 border-t pt-2">
+          <div className="flex items-center gap-2 text-sm">
+            <Clock className="size-4 text-muted-foreground" />
+            <button
+              type="button"
+              className="flex h-8 min-w-0 flex-1 items-center justify-between rounded-lg border bg-background px-2.5 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="截止时间"
-              value={time}
+              aria-haspopup="dialog"
+              aria-expanded={timeOpen}
               disabled={busy}
-              onInput={(e) => setTime(e.currentTarget.value)}
-            />
+              onClick={() => {
+                setDraftTime(time || "09:00");
+                setTimeOpen(true);
+              }}
+            >
+              <span className={time ? "tabular-nums" : "text-muted-foreground"}>{time || "选择时间"}</span>
+              <Clock className="size-3.5 text-muted-foreground" />
+            </button>
             <Button
               variant="ghost"
               size="sm"
@@ -223,7 +241,7 @@ export function TaskSchedulePicker({
             >
               无时间
             </Button>
-          </label>
+          </div>
           <div className="flex gap-2 text-sm">
             <Bell className="mt-1 size-4 shrink-0" />
             <div className="min-w-0 flex-1 space-y-2">
@@ -259,16 +277,14 @@ export function TaskSchedulePicker({
                   disabled={busy}
                   className="h-8 min-w-0 flex-1"
                 />
-                <select
-                  aria-label="自定义提醒单位"
+                <ChoiceSelect
+                  label="自定义提醒单位"
                   value={customUnit}
                   disabled={busy}
-                  className="h-8 rounded-md border px-1 text-xs"
-                  onChange={(e) => setCustomUnit(e.target.value)}
-                >
-                  <option value="hour">小时</option>
-                  <option value="day">天</option>
-                </select>
+                  className="h-8 px-2 text-xs"
+                  onChange={setCustomUnit}
+                  options={[{ value: "hour", label: "小时" }, { value: "day", label: "天" }]}
+                />
                 <Button
                   size="sm"
                   variant="outline"
@@ -320,20 +336,19 @@ export function TaskSchedulePicker({
               )}
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm">
             <Repeat2 className="size-4" />
-            <select
-              aria-label="重复规则"
+            <ChoiceSelect
+              label="重复规则"
               value={repeat}
               disabled={busy}
-              className="min-w-0 flex-1 rounded-md border p-2"
-              onChange={(e) =>
-                e.target.value === "custom"
+              className="flex-1"
+              onChange={(value) =>
+                value === "custom"
                   ? openCustomRepeat()
-                  : setRepeat(e.target.value)
+                  : setRepeat(value)
               }
-            >
-              {[
+              options={[...[
                 "",
                 "day:1",
                 "week:1",
@@ -346,29 +361,23 @@ export function TaskSchedulePicker({
                 ...(task.repeatRule ? [task.repeatRule] : []),
               ]
                 .filter((v, i, a) => a.indexOf(v) === i)
-                .map((r) => (
-                  <option key={r} value={r}>
-                    {r ? repeatRuleLabel(r) : "不重复"}
-                  </option>
-                ))}
-              <option value="custom">自定义重复…</option>
-            </select>
-          </label>
+                .map(r => ({ value: r, label: r ? repeatRuleLabel(r) : "不重复" })),
+                { value: "custom", label: "自定义重复…", separator: true },
+              ]}
+            />
+          </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setManual(!manual)}>
-          管理独立提醒
-        </Button>
-        {manual && <TaskReminders task={task} disabled={busy} />}
         {error && (
           <p role="alert" className="text-xs text-destructive">
             {error}
           </p>
         )}
         <div className="grid grid-cols-2 gap-2">
-          <Button disabled={busy} onClick={() => void save()}>
+          <Button size="sm" disabled={busy} onClick={() => void save()}>
             {busy ? "保存中…" : "确定"}
           </Button>
           <Button
+            size="sm"
             variant="outline"
             disabled={busy}
             onClick={() => void save(true)}
@@ -379,71 +388,54 @@ export function TaskSchedulePicker({
         <p className="text-xs text-muted-foreground">
           清除日期会停止重复并取消未触发的自动提醒。
         </p>
-        {customRepeatOpen && (
-          <Dialog open onOpenChange={setCustomRepeatOpen}>
-            <DialogContent className="sm:max-w-xs">
-              <DialogTitle>自定义重复</DialogTitle>
-              <div className="flex items-center gap-2">
-                <span>每</span>
-                <Input
-                  aria-label="重复间隔"
-                  type="number"
-                  min="1"
-                  max="999"
-                  value={repeatInterval}
-                  onChange={(e) => setRepeatInterval(e.target.value)}
-                  className="min-w-0 flex-1"
-                />
-                <select
-                  aria-label="重复单位"
-                  value={repeatUnit}
-                  className="rounded-md border p-2"
-                  onChange={(e) => setRepeatUnit(e.target.value)}
-                >
-                  {[
-                    ["day", "天"],
-                    ["week", "周"],
-                    ["month", "月"],
-                    ["year", "年"],
-                  ].map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+        {timeOpen && (
+          <Dialog open onOpenChange={setTimeOpen}>
+            <DialogContent className="max-h-[90dvh] gap-3 overflow-y-auto p-3 sm:max-w-[260px]">
+              <DialogTitle className="text-center text-sm">选择时间</DialogTitle>
+              <div className="rounded-lg bg-muted/60 py-3 text-center text-2xl font-medium tabular-nums tracking-wider">
+                {draftTime}
               </div>
-              {repeatError && (
-                <p role="alert" className="text-xs text-destructive">
-                  {repeatError}
-                </p>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCustomRepeatOpen(false)}
-                >
-                  取消
-                </Button>
-                <Button
-                  onClick={() => {
-                    const interval = Number(repeatInterval);
-                    if (
-                      !Number.isSafeInteger(interval) ||
-                      interval < 1 ||
-                      interval > 999
-                    ) {
-                      setRepeatError("请输入1到999之间的整数。");
-                      return;
-                    }
-                    setRepeat(`${repeatUnit}:${interval}`);
-                    setCustomRepeatOpen(false);
-                  }}
-                >
-                  应用重复
-                </Button>
+              <div className="grid grid-cols-2 gap-3">
+                {(["小时", "分钟"] as const).map((label, part) => (
+                  <div key={label} className="min-w-0 space-y-1.5">
+                    <p className="text-center text-xs text-muted-foreground">{label}</p>
+                    <div
+                      role="group"
+                      aria-label={label}
+                      ref={part === 0 ? hourColumn : minuteColumn}
+                      className="grid max-h-48 grid-cols-3 gap-1 overflow-y-auto overscroll-contain rounded-lg border p-1"
+                    >
+                      {Array.from({ length: part === 0 ? 24 : 60 }, (_, n) => {
+                        const value = String(n).padStart(2, "0");
+                        const selected = draftTime.split(":")[part] === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-label={`${value}${part === 0 ? "时" : "分"}`}
+                            aria-pressed={selected}
+                            className={`h-8 rounded-md text-xs tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                            onClick={() => {
+                              const parts = draftTime.split(":");
+                              parts[part] = value;
+                              setDraftTime(parts.join(":"));
+                            }}
+                          >{value}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" variant="outline" onClick={() => setTimeOpen(false)}>取消</Button>
+                <Button size="sm" onClick={() => { setTime(draftTime); setTimeOpen(false); }}>应用时间</Button>
               </div>
             </DialogContent>
           </Dialog>
+        )}
+        {customRepeatOpen && (
+          <CustomRepeatDialog rule={repeat} date={date} time={time} onClosed={() => setCustomRepeatOpen(false)} onApply={(value) => { setRepeat(value); setCustomRepeatOpen(false); }} />
         )}
       </DialogContent>
     </Dialog>

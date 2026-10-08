@@ -1,3 +1,4 @@
+import { parseRecurrence, nextRecurrenceDue, recurrenceLabel } from "./recurrence";
 export interface NaturalTaskInput {
   title: string; dueAt: string | null; matchedText: string | null; label: string | null;
   repeatText: string | null; repeatRule: string | null; remindAt: string[]; reminderOffsets: number[];
@@ -167,6 +168,8 @@ export function parseNaturalTaskInput(input: string, now = new Date()): NaturalT
   return { title, dueAt: due?.toISOString() ?? null, matchedText, label: due ? label(due) : null, repeatText, repeatRule, remindAt, reminderOffsets };
 }
 export function nextRepeatDue(prior: string, rule: string, after = new Date()): string | null {
+  const structured = parseRecurrence(rule);
+  if (structured) return nextRecurrenceDue(prior, structured, after);
   const date = new Date(prior);
   for (let i = 0; i < 10000; i++) {
     const [kind, first, second] = rule.split(":");
@@ -192,6 +195,8 @@ export function nextRepeatDue(prior: string, rule: string, after = new Date()): 
   return null;
 }
 export function repeatRuleLabel(rule: string): string {
+  const structured = parseRecurrence(rule);
+  if (structured) return recurrenceLabel(structured);
   if (rule === "week-monday") return "每周一";
   if (rule === "weekday") return "每个工作日";
   if (rule === "weekend") return "每周末";

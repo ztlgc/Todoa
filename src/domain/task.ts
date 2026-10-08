@@ -1,5 +1,6 @@
 import { parseListId } from "./list";
 import { parseTagId } from "./tag";
+import { parseRecurrence } from "./recurrence";
 
 export type TaskStatus = "todo" | "completed";
 export type TaskPriority = "high" | "medium" | "low" | "none";
@@ -145,7 +146,7 @@ export function parseCreateTaskInput(value: CreateTaskInput): { title: string; n
     throw new TaskValidationError("任务输入无效");
   }
   const repeatRule = value.repeatRule ?? null;
-  if (repeatRule !== null && !/^(?:day|week|month|year):[1-9]\d{0,2}$|^week-monday$|^weekday$|^weekend$|^month-last$|^month-day:(?:[1-9]|[12]\d|3[01])$|^year-date:(?:[1-9]|1[0-2]):(?:[1-9]|[12]\d|3[01])$/.test(repeatRule)) throw new TaskValidationError("重复规则无效");
+  if (repeatRule !== null && !parseRecurrence(repeatRule) && !/^(?:day|week|month|year):[1-9]\d{0,2}$|^week-monday$|^weekday$|^weekend$|^month-last$|^month-day:(?:[1-9]|[12]\d|3[01])$|^year-date:(?:[1-9]|1[0-2]):(?:[1-9]|[12]\d|3[01])$/.test(repeatRule)) throw new TaskValidationError("重复规则无效");
   const remindAt = (value.remindAt ?? []).map(parseTaskTime);
   const reminderOffsets = value.reminderOffsets ?? [];
   if (remindAt.length > 16 || reminderOffsets.length > 16 || reminderOffsets.some(offset => !Number.isSafeInteger(offset) || offset < 0 || offset > 525600)) throw new TaskValidationError("提醒规则无效");

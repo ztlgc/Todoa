@@ -5,3 +5,4 @@ pub mod journal;
 pub mod reminders;
 
 pub mod content;
+pub mod preferences;

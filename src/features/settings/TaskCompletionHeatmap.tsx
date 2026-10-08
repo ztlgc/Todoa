@@ -74,22 +74,24 @@ export function TaskCompletionHeatmap({ tasks, now }: { tasks: Task[]; now: Date
       </div>
       <p className="text-sm text-muted-foreground">完成 <strong className="font-semibold text-foreground tabular-nums">{total}</strong> 项 · 活跃 <strong className="font-semibold text-foreground tabular-nums">{activeDays}</strong> 天</p>
     </div>
-    <div className="mt-5 overflow-x-auto p-1">
-      <div className={view === "year" ? "flex w-max gap-2" : "w-full max-w-xs"}>
-        {months.map(item => <div key={item.month} className="shrink-0">
+    <div className="mt-5 p-1">
+      <div className={view === "year" ? "grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-x-3 gap-y-5" : "w-full"}>
+        {months.map(item => <div key={item.month} className="min-w-0">
           {view === "year" && <h3 className="mb-3 text-center text-xs font-medium text-muted-foreground">{item.month + 1}月</h3>}
-          <div role="group" aria-label={`${year}年${item.month + 1}月每日完成数量`} className={`grid ${view === "year" ? "grid-cols-5 gap-[2px]" : "grid-cols-7 gap-2"}`}>
+          <div role="group" aria-label={`${year}年${item.month + 1}月每日完成数量`} className={`grid ${view === "year" ? "grid-cols-[repeat(auto-fill,minmax(10px,1fr))] gap-[2px]" : "grid-cols-[repeat(auto-fill,minmax(36px,1fr))] gap-2"}`}>
             {item.days.map((day, index) => <button
               key={day.key} type="button" data-date={day.key}
               title={`${day.key}：完成 ${day.count} 项${day.future ? "（未来日期）" : ""}`}
               aria-label={`${day.key}：完成 ${day.count} 项`}
               aria-pressed={selected.key === day.key}
               tabIndex={selected.key === day.key ? 0 : -1}
-              className={`${view === "year" ? "size-[10px] rounded-[3px]" : "aspect-square min-h-8 rounded-md text-xs tabular-nums"} border border-foreground/5 ${colors[level(day.count)]} ${day.count >= 6 ? "text-white dark:text-emerald-950" : "text-foreground"} ${day.future ? "opacity-40" : ""} ${selected.key === day.key ? "ring-1 ring-foreground ring-offset-1 ring-offset-card" : ""} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+              className={`${view === "year" ? "aspect-square min-h-[10px] rounded-[3px]" : "aspect-square min-h-8 rounded-md text-xs tabular-nums"} border border-foreground/5 ${colors[level(day.count)]} ${day.count >= 6 ? "text-white dark:text-emerald-950" : "text-foreground"} ${day.future ? "opacity-40" : ""} ${selected.key === day.key ? "ring-1 ring-foreground ring-offset-1 ring-offset-card" : ""} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
               onFocus={() => setSelectedKey(day.key)}
               onClick={() => setSelectedKey(day.key)}
               onKeyDown={event => {
-                const moves: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: view === "year" ? -5 : -7, ArrowDown: view === "year" ? 5 : 7 };
+                const grid = event.currentTarget.parentElement!;
+                const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(track => /^\d+(\.\d+)?px$/.test(track)).length || (view === "year" ? 5 : 7);
+                const moves: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns, ArrowDown: columns };
                 const current = view === "year" ? days.findIndex(entry => entry.key === day.key) : index;
                 const target = event.key === "Home" ? 0 : event.key === "End" ? days.length - 1 : moves[event.key] === undefined ? null : Math.max(0, Math.min(days.length - 1, current + moves[event.key]));
                 if (target === null) return;

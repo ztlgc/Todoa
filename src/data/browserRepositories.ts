@@ -4,6 +4,7 @@ import { parseTagId, parseTagName, TagConflictError, type Tag, type TaskTag } fr
 import type { Reminder } from "./repositories/ReminderRepository";
 import { nextRepeatDue } from "@/domain/naturalTaskInput";
 import { compareTaskDates } from "@/domain/taskDates";
+import { advanceRecurrenceRule } from "@/domain/recurrence";
 
 // Browser dev data is deliberately separate from the desktop SQLite database.
 const state = {
@@ -76,7 +77,7 @@ export const browserTaskRepository = {
       if (wasTodo && task.repeatRule && (task.dueAt || task.dueDate)) {
         const dueAt = nextRepeatDue(task.dueAt ?? new Date(task.dueDate+"T12:00:00").toISOString(), task.repeatRule);
         if (dueAt) {
-          const next: Task = { ...task, id: state.nextTask++, dueAt: task.dueDate ? null : dueAt, dueDate: task.dueDate ? (()=>{const d=new Date(dueAt);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})() : null, contentRevision: 0, status: "todo", completedAt: null, createdAt: stamp(), updatedAt: stamp() };
+          const next: Task = { ...task, repeatRule: advanceRecurrenceRule(task.repeatRule), id: state.nextTask++, dueAt: task.dueDate ? null : dueAt, dueDate: task.dueDate ? (()=>{const d=new Date(dueAt);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})() : null, contentRevision: 0, status: "todo", completedAt: null, createdAt: stamp(), updatedAt: stamp() };
           state.tasks.push(next);
           for (const link of state.taskTags.filter(link => link.taskId === task.id)) state.taskTags.push({ taskId: next.id, tagId: link.tagId });
           for (const offset of task.reminderOffsets ?? []) {

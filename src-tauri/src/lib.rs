@@ -6,6 +6,7 @@ mod reminder_scheduler;
 mod services;
 mod tray;
 mod window_state;
+mod preferences;
 
 use tauri::{Manager, State, WebviewWindow};
 
@@ -60,6 +61,9 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             database_boot_status,
+            commands::preferences::get_app_preferences,
+            commands::preferences::set_app_preferences,
+            commands::preferences::test_system_notification,
             commands::content::save_task_content,
             commands::content::import_task_image,
             commands::content::read_task_image,

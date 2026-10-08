@@ -2,6 +2,9 @@ fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "database_boot_status",
+            "get_app_preferences",
+            "set_app_preferences",
+            "test_system_notification",
             "save_task_content",
             "import_task_image",
             "read_task_image",

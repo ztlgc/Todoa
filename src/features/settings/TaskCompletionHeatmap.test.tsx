@@ -73,3 +73,16 @@ it("follows grid rows with arrow keys, crossing month boundaries and refreshing 
   expect(screen.getByRole("status").textContent).toBe("2026-10-07：完成 0 项");
   expect(screen.getAllByRole("button").filter(button => button.hasAttribute("data-date") && button.tabIndex === 0)).toHaveLength(1);
 });
+
+it("uses the current rendered column count for vertical keyboard movement", () => {
+  render(<TaskCompletionHeatmap tasks={[]} now={now} />);
+  fireEvent.click(screen.getByRole("button", { name: "月视图" }));
+  const grid = screen.getByRole("group", { name: "2026年10月每日完成数量" });
+  grid.style.gridTemplateColumns = Array(10).fill("40px").join(" ");
+  const day = screen.getByRole("button", { name: "2026-10-15：完成 0 项" });
+  fireEvent.keyDown(day, { key: "ArrowUp" });
+  expect(document.activeElement?.getAttribute("data-date")).toBe("2026-10-05");
+  grid.style.gridTemplateColumns = Array(6).fill("40px").join(" ");
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+  expect(document.activeElement?.getAttribute("data-date")).toBe("2026-10-11");
+});

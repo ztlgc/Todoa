@@ -1,8 +1,23 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { parseNaturalTaskInput } from "@/domain/naturalTaskInput";
 import { browserTaskRepository, browserReminderRepository } from "./browserRepositories";
+import { defaultRecurrence, parseRecurrence } from "@/domain/recurrence";
 
 afterEach(() => vi.useRealTimers());
+
+it("persists multi-weekday rules, preserves reminders, and stops at the occurrence limit", async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date(2026,9,5,8));
+  const due = new Date(2026,9,5,9).toISOString();
+  const rule = {...defaultRecurrence("2026-10-05"),weekdays:[1,3],end:"count",count:2};
+  const task = await browserTaskRepository.create({title:"限定两次的周计划",dueAt:due,repeatRule:JSON.stringify(rule),remindAt:[due],reminderOffsets:[0]});
+  await browserTaskRepository.updateStatus(task.id,"completed");
+  const next = (await browserTaskRepository.list({status:"todo"})).find(t=>t.title===task.title)!;
+  expect(new Date(next.dueAt!).getDate()).toBe(7);
+  expect(parseRecurrence(next.repeatRule!)?.count).toBe(1);
+  expect(await browserReminderRepository.list(next.id)).toMatchObject([{remindAt:next.dueAt}]);
+  await browserTaskRepository.updateStatus(next.id,"completed");
+  expect((await browserTaskRepository.list({status:"todo"})).filter(t=>t.title===task.title)).toHaveLength(0);
+});
 
 it("keeps date-only recurrence and rich content when generating the next occurrence", async () => {
   vi.useFakeTimers();

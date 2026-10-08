@@ -221,16 +221,15 @@ it("configures date-only recurrence in one submit and cancels without writes", a
   setup();
   fireEvent.click(await screen.findByLabelText("日期与提醒"));
   fireEvent.click(screen.getByRole("button", { name: "明天" }));
-  fireEvent.change(screen.getByLabelText("重复规则"), {
-    target: { value: "day:1" },
-  });
+  fireEvent.click(screen.getByRole("combobox", { name: "重复规则" }));
+  await chooseOption("每天");
   fireEvent.click(screen.getByRole("button", { name: "关闭" }));
   expect(taskRepository.update).not.toHaveBeenCalled();
   fireEvent.click(screen.getByLabelText("日期与提醒"));
   fireEvent.click(screen.getByRole("button", { name: dueDate }));
-  fireEvent.change(screen.getByLabelText("重复规则"), {
-    target: { value: "day:1" },
-  });
+  fireEvent.click(screen.getByRole("button", { name: "无时间" }));
+  fireEvent.click(screen.getByRole("combobox", { name: "重复规则" }));
+  await chooseOption("每天");
   fireEvent.click(screen.getByRole("button", { name: "确定" }));
   await waitFor(() =>
     expect(taskRepository.update).toHaveBeenCalledWith(1, {
@@ -269,3 +268,9 @@ it("moves deletion to the more menu and flushes content before completion", asyn
   await waitFor(() => expect(taskRepository.trash).toHaveBeenCalledWith(1));
   expect(closed).toHaveBeenCalledOnce();
 });
+
+async function chooseOption(name: string) {
+  const option = await screen.findByRole("option", { name });
+  fireEvent.pointerDown(option, { pointerType: "mouse" });
+  fireEvent.click(option);
+}

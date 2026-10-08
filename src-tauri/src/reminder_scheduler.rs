@@ -47,25 +47,35 @@ impl Notification for Disabled {
         Err("NOTIFICATION_NOT_ENABLED")
     }
 }
-struct SystemNotification(tauri::AppHandle);
-impl Notification for SystemNotification {
-    fn availability(&self) -> &'static str {
-        use tauri_plugin_notification::{NotificationExt, PermissionState};
-        match self.0.notification().permission_state() {
-            Ok(PermissionState::Granted) => "ready",
-            Ok(
-                tauri_plugin_notification::PermissionState::Prompt
-                | tauri_plugin_notification::PermissionState::PromptWithRationale,
-            ) => "notification-setting-unknown",
-            Ok(_) => "NOTIFICATION_DENIED",
-            Err(error) => {
-                eprintln!("NOTIFICATION_AVAILABILITY_FAILED: {error}");
-                "NOTIFICATION_AVAILABILITY_FAILED"
-            }
+pub(crate) fn system_availability(app: &tauri::AppHandle) -> &'static str {
+    use tauri_plugin_notification::{NotificationExt, PermissionState};
+    match app.notification().permission_state() {
+        Ok(PermissionState::Granted) => "ready",
+        Ok(
+            tauri_plugin_notification::PermissionState::Prompt
+            | tauri_plugin_notification::PermissionState::PromptWithRationale,
+        ) => "notification-setting-unknown",
+        Ok(_) => "NOTIFICATION_DENIED",
+        Err(error) => {
+            eprintln!("NOTIFICATION_AVAILABILITY_FAILED: {error}");
+            "NOTIFICATION_AVAILABILITY_FAILED"
         }
+    }
+}
+struct SystemNotification(tauri::AppHandle, Arc<crate::preferences::PreferencesState>);
+impl Notification for SystemNotification {
+    fn enabled(&self) -> bool {
+        self.1.snapshot().delivery_enabled()
+    }
+    fn availability(&self) -> &'static str {
+        system_availability(&self.0)
     }
     fn send(&self, reminder: &Pending) -> Result<(), &'static str> {
         use tauri_plugin_notification::NotificationExt;
+        let preferences = self.1.snapshot();
+        if !preferences.delivery_enabled() {
+            return Err("NOTIFICATION_PAUSED");
+        }
         match self.availability() {
             "ready" | "notification-setting-unknown" => {}
             code => return Err(code),
@@ -73,7 +83,12 @@ impl Notification for SystemNotification {
         self.0
             .notification()
             .builder()
-            .title(&reminder.title)
+            .title("Todoa 提醒")
+            .body(if preferences.show_task_title {
+                reminder.title.as_str()
+            } else {
+                "你有一项任务到时间了。打开 Todoa 查看。"
+            })
             .show()
             .map_err(|_| "NOTIFICATION_API_FAILED")
     }
@@ -158,7 +173,7 @@ impl Scheduler {
         let mut delay = 30_000i64;
         let mut changed = false;
         for row in rows {
-            if self.stopping.load(Ordering::SeqCst) {
+            if self.stopping.load(Ordering::SeqCst) || !self.notification.enabled() {
                 break;
             }
             let at = chrono::DateTime::parse_from_rfc3339(&row.time)
@@ -289,10 +304,18 @@ impl Scheduler {
 }
 pub async fn initialize(app: &tauri::AppHandle) {
     if let Ok(pool) = crate::db::shared_pool(app).await {
+        let preferences = match crate::preferences::PreferencesState::load(&pool).await {
+            Ok(value) => Arc::new(value),
+            Err(code) => {
+                eprintln!("{code}");
+                return;
+            }
+        };
+        app.manage(preferences.clone());
         let scheduler = Scheduler::new(
             pool,
             Arc::new(SystemClock(std::time::Instant::now())),
-            Arc::new(SystemNotification(app.clone())),
+            Arc::new(SystemNotification(app.clone(), preferences)),
         );
         app.manage(scheduler.clone());
         let handle = app.clone();
