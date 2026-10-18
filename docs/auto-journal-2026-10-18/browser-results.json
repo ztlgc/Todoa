@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "Completing a real task immediately creates the daily journal",
+    "Recovered handwritten draft saves alongside newly captured tasks",
+    "Search and actual Markdown download include automatic snapshots and manual summary",
+    "Undoing a same-day completion withdraws only its automatic entry",
+    "Deleted day stays deleted after reload and restores all snapshots and manual text",
+    "Reload preserves snapshots without duplicates after temporary browser tasks reset",
+    "390px timeline and editor have no horizontal overflow",
+    "Bank fixture remains isolated and does not duplicate its automatic sample on reload"
+  ],
+  "errors": []
+}

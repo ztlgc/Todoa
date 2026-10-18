@@ -1,9 +1,40 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { parseNaturalTaskInput } from "@/domain/naturalTaskInput";
-import { browserTaskRepository, browserReminderRepository } from "./browserRepositories";
+import { browserTaskRepository, browserReminderRepository, browserListRepository, browserTagRepository } from "./browserRepositories";
 import { defaultRecurrence, parseRecurrence } from "@/domain/recurrence";
 
 afterEach(() => vi.useRealTimers());
+
+it("deletes only the selected task relations and preserves tasks when their list or tag is removed", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 9, 17, 10));
+  const due = new Date(2026, 9, 18, 9).toISOString();
+  const list = await browserListRepository.create("删除关系测试清单");
+  const tag = await browserTagRepository.create("待删除关系标签");
+  const otherTag = await browserTagRepository.create("应保留关系标签");
+  const retained = await browserTaskRepository.create({ title: "应保留的任务", notes: "应保留的内容", listId: list.id, priority: "high", dueAt: due, remindAt: [due], reminderOffsets: [0] });
+  const removed = await browserTaskRepository.create({ title: "永久删除关系样本", listId: list.id, dueAt: due, remindAt: [due], reminderOffsets: [0] });
+  await browserTagRepository.assign(retained.id, tag.id);
+  await browserTagRepository.assign(retained.id, otherTag.id);
+  await browserTagRepository.assign(removed.id, tag.id);
+  expect(await browserReminderRepository.list(removed.id)).toHaveLength(1);
+
+  await browserTaskRepository.trash(removed.id);
+  await browserTaskRepository.delete(removed.id);
+  expect(await browserTaskRepository.getById(removed.id)).toBeNull();
+  expect((await browserTaskRepository.list({ deleted: true })).some(task => task.id === removed.id)).toBe(false);
+  expect(await browserReminderRepository.list(removed.id)).toEqual([]);
+  expect((await browserTagRepository.listTaskTags()).filter(link => link.taskId === removed.id)).toEqual([]);
+
+  await browserListRepository.delete(list.id);
+  await browserTagRepository.delete(tag.id);
+  expect((await browserTaskRepository.list({ listId: null })).find(task => task.id === retained.id)).toMatchObject({ title: "应保留的任务", notes: "应保留的内容", priority: "high", dueAt: due, listId: null });
+  expect((await browserTagRepository.listTaskTags()).filter(link => link.taskId === retained.id)).toEqual([{ taskId: retained.id, tagId: otherTag.id }]);
+  expect(await browserReminderRepository.list(retained.id)).toMatchObject([{ remindAt: due }]);
+  expect((await browserListRepository.list()).some(item => item.id === list.id)).toBe(false);
+  expect((await browserTagRepository.list()).some(item => item.id === tag.id)).toBe(false);
+  expect((await browserTagRepository.list()).some(item => item.id === otherTag.id)).toBe(true);
+});
 
 it("persists multi-weekday rules, preserves reminders, and stops at the occurrence limit", async () => {
   vi.useFakeTimers(); vi.setSystemTime(new Date(2026,9,5,8));

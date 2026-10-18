@@ -45,6 +45,56 @@ fn document(
     {
         return Err("INVALID_CONTENT");
     }
+    if kind == "doc" {
+        if let Some(value) = node.get("attrs").and_then(|attrs| attrs.get("subtasks")) {
+            let items = value.as_array().ok_or("INVALID_SUBTASKS")?;
+            if items.len() > 500 {
+                return Err("INVALID_SUBTASKS");
+            }
+            let mut ids = std::collections::HashSet::new();
+            for item in items {
+                let id = item["id"].as_str().ok_or("INVALID_SUBTASKS")?;
+                let title = item["title"].as_str().ok_or("INVALID_SUBTASKS")?;
+                let completed = item["completed"].as_bool().ok_or("INVALID_SUBTASKS")?;
+                if id.is_empty()
+                    || id.chars().count() > 100
+                    || id.contains('\0')
+                    || !ids.insert(id)
+                    || title.trim().is_empty()
+                    || title.chars().count() > 500
+                    || title.contains('\0')
+                {
+                    return Err("INVALID_SUBTASKS");
+                }
+                if let Some(value) = item.get("dueDate") {
+                    let date = value.as_str().ok_or("INVALID_SUBTASKS")?;
+                    if date.len() != 10
+                        || date.starts_with("0000")
+                        || chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+                            .map(|parsed| parsed.to_string())
+                            .as_deref()
+                            != Ok(date)
+                    {
+                        return Err("INVALID_SUBTASKS");
+                    }
+                }
+                if let Some(value) = item.get("dueAt") {
+                    let at = value.as_str().ok_or("INVALID_SUBTASKS")?;
+                    if item.get("dueDate").is_some()
+                        || chrono::DateTime::parse_from_rfc3339(at).is_err()
+                        || at.len() < 20
+                        || at.len() > 35
+                        || at.starts_with("0000")
+                    {
+                        return Err("INVALID_SUBTASKS");
+                    }
+                }
+                text.push_str(if completed { "[x] " } else { "[ ] " });
+                text.push_str(title.trim());
+                text.push('\n');
+            }
+        }
+    }
     if let Some(marks) = node.get("marks") {
         for mark in marks.as_array().ok_or("INVALID_CONTENT")? {
             let t = mark["type"].as_str().ok_or("INVALID_CONTENT")?;

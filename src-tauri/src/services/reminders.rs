@@ -78,7 +78,10 @@ pub async fn update_status(
     if !matches!(status, "todo" | "completed") {
         return Err("INVALID_STATUS");
     }
-    let mut tx = pool.begin().await.map_err(|_| "TASK_TRANSACTION_FAILED")?;
+    let mut tx = pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|_| "TASK_TRANSACTION_FAILED")?;
     let stamp = timestamp(now);
     let was_todo: bool = sqlx::query_scalar::<_, String>(
         "SELECT status FROM tasks WHERE id=? AND deleted_at IS NULL",
@@ -89,6 +92,10 @@ pub async fn update_status(
     .map_err(|_| "TASK_STATUS_FAILED")?
     .ok_or("TASK_NOT_FOUND")?
         == "todo";
+    if !was_todo && status == "todo" {
+        super::journal_automation::capture(&mut tx, task_id).await?;
+        super::journal_automation::revoke(&mut tx, task_id, now).await?;
+    }
     let result = sqlx::query("UPDATE tasks SET completed_at=CASE WHEN status=? THEN completed_at WHEN ?='completed' THEN ? ELSE NULL END,updated_at=CASE WHEN status=? THEN updated_at ELSE ? END,status=? WHERE id=? AND deleted_at IS NULL")
         .bind(status).bind(status).bind(&stamp).bind(status).bind(&stamp).bind(status).bind(task_id).execute(&mut *tx).await.map_err(|_| "TASK_STATUS_FAILED")?;
     if result.rows_affected() != 1 {
@@ -101,6 +108,7 @@ pub async fn update_status(
             .await
             .map_err(|_| "REMINDER_CANCEL_FAILED")?;
         if was_todo {
+            super::journal_automation::capture(&mut tx, task_id).await?;
             crate::services::schedule::create_next(&mut tx, task_id, now).await?;
         }
     }

@@ -5,6 +5,9 @@ import { parseTaskFilters, type CreateTaskInput, type TaskFilters, type TaskStat
 import { taskKeys } from "./queryKeys";
 import { listKeys } from "@/features/lists/queryKeys";
 import { tagKeys } from "@/features/tags/queryKeys";
+import { contentRepository } from "@/data/repositories/ContentRepository";
+import { readSubtasks, withSubtasks } from "@/domain/subtask";
+import type { JSONContent } from "@tiptap/react";
 
 export async function invalidateTaskCaches(client: QueryClient, id?: number) {
   await Promise.all([
@@ -13,6 +16,7 @@ export async function invalidateTaskCaches(client: QueryClient, id?: number) {
     client.invalidateQueries({ queryKey: taskKeys.counts() }),
     client.invalidateQueries({ queryKey: listKeys.all }),
     client.invalidateQueries({ queryKey: tagKeys.all }),
+    client.invalidateQueries({ queryKey: ["journal"] }),
     client.invalidateQueries({ queryKey: reminderKeys.all }),
   ]);
 }
@@ -54,6 +58,25 @@ export function useUpdateTaskStatus() {
     mutationFn: ({ id, status }: { id: number; status: TaskStatus }) => taskRepository.updateStatus(id, status),
     networkMode: "always",
     retry: 0,
+    onSuccess: (_data, { id }) => invalidateTaskCaches(client, id),
+  });
+}
+
+export function useUpdateSubtaskStatus() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, subtaskId, completed }: { id: number; subtaskId: string; completed: boolean }) => {
+      // A card can lag behind an open inspector or another window. Read the
+      // latest document, then use its revision so toggling cannot replace edits.
+      const task = await taskRepository.getById(id);
+      if (!task?.contentJson || task.deletedAt) throw new Error("SUBTASK_NOT_FOUND");
+      const doc: JSONContent = JSON.parse(task.contentJson);
+      const items = readSubtasks(doc), item = items.find(value => value.id === subtaskId);
+      if (!item) throw new Error("SUBTASK_NOT_FOUND");
+      if (item.completed === completed) return;
+      await contentRepository.save(id, task.title, withSubtasks(doc, items.map(value => value.id === subtaskId ? { ...value, completed } : value)), task.contentRevision ?? 0);
+    },
+    networkMode: "always", retry: 0,
     onSuccess: (_data, { id }) => invalidateTaskCaches(client, id),
   });
 }

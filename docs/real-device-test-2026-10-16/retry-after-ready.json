@@ -1,0 +1,58 @@
+{
+  "at_utc": "2026-10-16T15:08:36.718463+00:00",
+  "user_confirmed_ready": true,
+  "recovery": [
+    "Refreshed app and window selection",
+    "Screenshot failed with FrameArrived timed out",
+    "Reset JavaScript kernel, reimported @oai/sky and reselected window",
+    "Screenshot retry failed with the same error",
+    "Tab did not produce observable focus change",
+    "UI Automation set_value accepted an unsubmitted QA draft",
+    "Native keyboard menu/cancel probes could not be verified; subsequent accessibility captures returned null",
+    "Reactivated target; accessibility remained null; no further input attempted"
+  ],
+  "submitted_test_data": false,
+  "possible_unsaved_draft": "QA-20261016-输入通道探测",
+  "database_unchanged": true,
+  "integrity": "ok",
+  "foreign_key_violations": 0,
+  "current_tables": {
+    "tasks": {
+      "rows": 2,
+      "sha256": "b4e47fdf77fc1144655143a7b95aaaab6bde46503b33f2655ea40d85992e2bf3"
+    },
+    "lists": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "tags": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "task_tags": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "reminders": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "settings": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "journal_records": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "task_assets": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "task_asset_refs": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  },
+  "conclusion": "Desktop control transport failure remains; no Todoa business failure can be inferred."
+}

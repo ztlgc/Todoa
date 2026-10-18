@@ -68,6 +68,13 @@ fn current_migrator() -> Migrator {
                 include_str!("../../migrations/0006_task_content.sql").into(),
                 false,
             ),
+            SqlxMigration::new(
+                7,
+                "journal_task_completions".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0007_journal_task_completions.sql").into(),
+                false,
+            ),
         ]),
         ..Migrator::DEFAULT
     }
@@ -284,7 +291,8 @@ fn preflight_rejects_unknown_future_and_bad_identity() {
         pool.execute("PRAGMA application_id=0x57544431")
             .await
             .unwrap();
-        pool.execute("PRAGMA user_version=7").await.unwrap();
+        let future = format!("PRAGMA user_version={}", super::SCHEMA_VERSION + 1);
+        pool.execute(future.as_str()).await.unwrap();
         assert_eq!(check_existing_database(&path).await, Err("FUTURE_SCHEMA"));
         pool.execute("PRAGMA user_version=0").await.unwrap();
         assert_eq!(
@@ -369,6 +377,46 @@ fn upgrade_preserves_tasks_and_requires_complete_migration_history() {
         assert_eq!(
             verify_pool(&pool, &path).await,
             Err("MIGRATION_HISTORY_MISSING")
+        );
+        pool.close().await;
+    });
+}
+
+#[test]
+fn schema_six_upgrade_preserves_manual_journals_and_backfills_available_completions() {
+    tauri::async_runtime::block_on(async {
+        let (dir, pool) = database().await;
+        let path = dir.path().join("todo.db");
+        let mut previous = current_migrator();
+        previous.migrations = Cow::Owned(
+            previous
+                .migrations
+                .iter()
+                .filter(|migration| migration.version <= 6)
+                .cloned()
+                .collect(),
+        );
+        previous.run(&pool).await.unwrap();
+        sqlx::query("INSERT INTO tasks(id,title,status,completed_at,created_at,updated_at) VALUES(1,'升级前已完成','completed',?,?,?)")
+            .bind(TIME).bind(TIME).bind(TIME).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO journal_records(kind,period_start,period_end,body,revision,created_at,updated_at) VALUES('day','2026-10-04','2026-10-04','已有手写日记',4,?,?)")
+            .bind(TIME).bind(TIME).execute(&pool).await.unwrap();
+        install(&pool).await;
+        verify_pool(&pool, &path).await.unwrap();
+        crate::services::journal_automation::reconcile(&pool)
+            .await
+            .unwrap();
+        let manual: (String, i64) = sqlx::query_as("SELECT body,revision FROM journal_records")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(manual, ("已有手写日记".into(), 4));
+        assert_eq!(
+            sqlx::query_scalar::<_, String>("SELECT title FROM journal_task_completions")
+                .fetch_one(&pool)
+                .await
+                .unwrap(),
+            "升级前已完成"
         );
         pool.close().await;
     });

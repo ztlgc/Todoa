@@ -14,7 +14,7 @@ export function FeatureSettings() {
   return <div className="my-6 space-y-4">
     <p className="text-sm text-muted-foreground">选择左侧显示的功能。关闭后只隐藏入口，已有任务和日记会保留。</p>
     <PreferencesFeedback />
-    <div className="grid gap-4 lg:grid-cols-2">{([{ field: "calendarEnabled", label: "日历", icon: CalendarDays, description: "按日期查看任务，安排接下来的计划。" }, { field: "journalEnabled", label: "日记", icon: BookOpen, description: "记录每天的想法，回顾生活中的点滴。" }] as const).map(item => <section key={item.field} className="rounded-xl border bg-card p-5">
+    <div className="grid gap-4 lg:grid-cols-2">{([{ field: "calendarEnabled", label: "日历", icon: CalendarDays, description: "按日期查看客户拜访、资料收集与业务跟进安排。" }, { field: "journalEnabled", label: "日记", icon: BookOpen, description: "记录客户沟通和业务进展，安排下一步跟进，整理工作回顾。" }] as const).map(item => <section key={item.field} className="rounded-xl border bg-card p-5">
       <div className="mb-5 flex items-center justify-between gap-4"><item.icon aria-hidden="true" className="size-6 text-muted-foreground" /><SettingsSwitch label={`显示${item.label}`} checked={query.data?.[item.field] ?? true} disabled={!query.isSuccess || save.isPending} onChange={value => { if (query.data) save.mutate({ ...query.data, [item.field]: value }); }} /></div>
       <h2 className="font-semibold">{item.label}</h2><p className="mt-2 text-sm text-muted-foreground">{item.description}</p>
     </section>)}</div>

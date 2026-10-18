@@ -5,6 +5,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@media (min-width: 1100px) {
+    .task-list-with-details {
+        /* The fixed inspector already occupies the centered workspace's outer
+           gutter. Reserve only the remaining space and a 16px content gap. */
+        margin-right: calc(var(--task-inspector-width) + 1rem - max(1.5rem, (100vw - var(--workspace-max-width)) / 2));
+    }
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
@@ -49,6 +57,8 @@
 }
 
 :root {
+    --workspace-max-width: 72rem;
+    --task-inspector-width: min(460px, 38vw);
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);

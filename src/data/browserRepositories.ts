@@ -5,6 +5,8 @@ import type { Reminder } from "./repositories/ReminderRepository";
 import { nextRepeatDue } from "@/domain/naturalTaskInput";
 import { compareTaskDates } from "@/domain/taskDates";
 import { advanceRecurrenceRule } from "@/domain/recurrence";
+import { isBrowserDebug } from "@/app/browserDebug";
+import { journalRepository } from "./repositories/JournalRepository";
 
 // Browser dev data is deliberately separate from the desktop SQLite database.
 const state = {
@@ -71,7 +73,10 @@ export const browserTaskRepository = {
     const task = state.tasks.find((item) => item.id === parseTaskId(id));
     if (!task || task.deletedAt) throw new Error("任务不存在");
     const wasTodo = task.status === "todo";
-    task.status = parseTaskStatus(status); task.completedAt = status === "completed" ? stamp() : null; task.updatedAt = stamp();
+    const nextStatus = parseTaskStatus(status), now = stamp();
+    if (task.status === nextStatus) return;
+    if (isBrowserDebug()) journalRepository.recordBrowserTaskStatus(task, nextStatus, now, state.lists.find(list => list.id === task.listId)?.name ?? "");
+    task.status = nextStatus; task.completedAt = nextStatus === "completed" ? now : null; task.updatedAt = now;
     if (status === "completed") {
       state.reminders = state.reminders.filter(reminder => reminder.taskId !== task.id || reminder.triggeredAt !== null);
       if (wasTodo && task.repeatRule && (task.dueAt || task.dueDate)) {

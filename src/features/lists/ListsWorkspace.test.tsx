@@ -15,6 +15,7 @@ import { listKeys } from "./queryKeys";
 vi.mock("@/data/repositories/ListRepository", () => ({ listRepository: { list: vi.fn(), create: vi.fn(), rename: vi.fn(), delete: vi.fn() } }));
 vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { list: vi.fn(), create: vi.fn(), updateStatus: vi.fn(), delete: vi.fn(), setList: vi.fn(), getById: vi.fn(), update: vi.fn() } }));
 vi.mock("@/data/repositories/TagRepository", () => ({ tagRepository: { list: async () => [], listTaskTags: async () => [] } }));
+vi.mock("@/data/repositories/JournalRepository", () => ({ journalRepository: { list: async () => [] } }));
 vi.mock("@/data/repositories/ContentRepository", () => ({ contentRepository: { save: vi.fn() }, plainDocument: (text:string)=>({ type:"doc", content:[{type:"paragraph",content:text?[{type:"text",text}]:[]}] }) }));
 const time = "2026-10-04T00:00:00.000Z";
 const list: TaskList = { id: 1, name: "工作", sortOrder: 0, createdAt: time, updatedAt: time };
@@ -73,6 +74,21 @@ it("separates task navigation from settings groups", async () => {
   expect(screen.getByRole("progressbar", { name: "任务完成率" }).getAttribute("aria-valuenow")).toBe("0");
   fireEvent.click(screen.getByRole("button", { name: /^任务$/ }));
   await screen.findByRole("heading", { name: "收件箱" });
+});
+
+it("identifies unsaved journal edits and preserves them when navigation is cancelled", async () => {
+  setup();
+  fireEvent.click(screen.getByRole("button", { name: "日记" }));
+  const summary = await screen.findByLabelText("记录事项");
+  fireEvent.change(summary, { target: { value: "保留这份日记草稿" } });
+  fireEvent.click(screen.getByRole("button", { name: "设置" }));
+  expect(await screen.findByText("当前日记尚未保存，离开后将保留本地草稿，是否切换视图？")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect((screen.getByLabelText("记录事项") as HTMLInputElement).value).toBe("保留这份日记草稿");
+  fireEvent.click(screen.getByRole("button", { name: "设置" }));
+  fireEvent.click(await screen.findByRole("button", { name: "离开并保留草稿" }));
+  expect(await screen.findByRole("heading", { name: "常规" })).toBeTruthy();
 });
 
 it("opens the task inspector from a calendar day cell task", async () => {

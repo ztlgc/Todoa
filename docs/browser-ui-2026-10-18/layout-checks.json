@@ -1,0 +1,44 @@
+[
+  {
+    "viewport": 1920,
+    "mode": "side-panel",
+    "gap": 16,
+    "cardWidth": 762,
+    "overflow": false
+  },
+  {
+    "cardWidth": 570,
+    "gap": 16,
+    "mode": "side-panel",
+    "overflow": false,
+    "viewport": 1536
+  },
+  {
+    "cardWidth": 406.77,
+    "gap": 16,
+    "mode": "side-panel",
+    "overflow": false,
+    "viewport": 1206
+  },
+  {
+    "cardWidth": 344,
+    "gap": 16,
+    "mode": "side-panel",
+    "overflow": false,
+    "viewport": 1100
+  },
+  {
+    "cardWidth": 753.2,
+    "gap": null,
+    "mode": "dialog",
+    "overflow": false,
+    "viewport": 1099
+  },
+  {
+    "cardWidth": 1082,
+    "gap": 16,
+    "mode": "side-panel",
+    "overflow": false,
+    "viewport": 2560
+  }
+]

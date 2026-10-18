@@ -1,0 +1,196 @@
+- main:
+  - paragraph: Todoa
+  - paragraph: 把事情记下来，慢慢完成。
+  - status: 浏览器调试 · 临时数据
+  - button "快速添加"
+  - navigation "一级导航":
+    - button "任务":
+      - text: 任务
+    - button "日历":
+      - text: 日历
+    - button "日记":
+      - text: 日记
+    - button "设置":
+      - text: 设置
+  - region "工作日记":
+    - complementary:
+      - strong: 工作日记
+      - generic: 记录当下，回望成长
+      - strong: 2026年 10月
+      - button "日历上个月":
+      - button "日历下个月":
+      - generic: 一
+      - generic: 二
+      - generic: 三
+      - generic: 四
+      - generic: 五
+      - generic: 六
+      - generic: 日
+      - button "查看2026-10-01日记": "1"
+      - button "查看2026-10-02日记": "2"
+      - button "查看2026-10-03日记": "3"
+      - button "查看2026-10-04日记": "4"
+      - button "查看2026-10-05日记": "5"
+      - button "查看2026-10-06日记": "6"
+      - button "查看2026-10-07日记": "7"
+      - button "查看2026-10-08日记": "8"
+      - button "查看2026-10-09日记": "9"
+      - button "查看2026-10-10日记": "10"
+      - button "查看2026-10-11日记": "11"
+      - button "查看2026-10-12日记": "12"
+      - button "查看2026-10-13日记": "13"
+      - button "查看2026-10-14日记": "14"
+      - button "查看2026-10-15日记": "15"
+      - button "查看2026-10-16日记" [pressed]: "16"
+      - button "查看2026-10-17日记": "17"
+      - button "查看2026-10-18日记": "18"
+      - button "查看2026-10-19日记": "19"
+      - button "查看2026-10-20日记": "20"
+      - button "查看2026-10-21日记": "21"
+      - button "查看2026-10-22日记": "22"
+      - button "查看2026-10-23日记": "23"
+      - button "查看2026-10-24日记": "24"
+      - button "查看2026-10-25日记": "25"
+      - button "查看2026-10-26日记": "26"
+      - button "查看2026-10-27日记": "27"
+      - button "查看2026-10-28日记": "28"
+      - button "查看2026-10-29日记": "29"
+      - button "查看2026-10-30日记": "30"
+      - button "查看2026-10-31日记": "31"
+      - button "回到今天 10.16":
+        - text: 回到今天
+        - generic: "10.16"
+      - generic: 浏览记录
+      - button "日"
+      - button "周" [pressed]
+      - button "月"
+      - button "年"
+      - textbox "搜索日记":
+        - /placeholder: 搜索记录…
+      - button "重点成果 2":
+        - text: 重点成果
+        - generic: "2"
+      - generic: 工作主题
+      - button "全部主题" [pressed]: 全部主题
+      - button "QA-项目已更名": QA-项目已更名
+      - button "QA测试,产品": QA测试,产品
+      - button "日记回收站":
+        - text: 日记回收站
+    - text: WORK JOURNAL
+    - generic: 浏览器本地日记
+    - heading "本周记录" [level=1]
+    - button "上一时间段":
+    - generic: 2026-10-12 — 2026-10-18
+    - button "下一时间段":
+    - button "导出当前工作回顾":
+    - button "写一笔":
+      - text: 写一笔
+    - main:
+      - strong: "1"
+      - generic: 天有记录
+      - strong: "3"
+      - generic: 项工作进展
+      - strong: "2"
+      - generic: 项重点成果
+      - strong: 周总结
+      - generic: 已保存
+      - heading "给这一周留下一份总结" [level=2]
+      - paragraph: "QA-周总结开头 ### 2026-10-16 QA-BROWSER-测试日记 QA 浏览器全面测试：完成重复任务并记录快照。修复后草稿 - QA-BROWSER-报表"
+      - button "编辑周总结":
+        - text: 编辑周总结
+      - generic: 每日工作足迹
+      - generic: 最近的记录在前
+      - article:
+        - strong: 10月16日星期五
+        - text: 重点成果
+        - button "QA-BROWSER-测试日记 QA 浏览器全面测试：完成重复任务并记录快照。修复后草稿":
+          - heading "QA-BROWSER-测试日记" [level=2]
+          - paragraph: QA 浏览器全面测试：完成重复任务并记录快照。修复后草稿
+        - list:
+          - generic: QA-BROWSER-报表
+          - text: QA-BROWSER-编辑已保存
+          - generic: QA-项目已更名
+          - paragraph: 第一行中文备注 第二行 English 😀
+          - text: QA-手写工作
+          - generic: QA测试,产品
+          - paragraph: 手动记录验证
+        - generic: QA测试,产品
+        - generic: 3 项工作进展
+        - button "编辑2026-10-16日记":
+      - paragraph: 慢慢记录，也慢慢看见自己的成长。
+    - complementary "日记编辑":
+      - generic: 日记编辑
+      - heading "10月16日星期五" [level=2]
+      - button "收起日记编辑":
+      - text: 标题
+      - textbox "日记标题":
+        - /placeholder: 为这段工作写一个标题
+        - text: QA-BROWSER-测试日记
+      - text: 当天总结
+      - textbox "总结正文":
+        - /placeholder: 记录成果、进展、思考与下一步安排…
+        - text: QA-第一窗口过期草稿必须保留
+      - text: 工作主题
+      - textbox "日记主题":
+        - /placeholder: 例如：Todoa、客户交付
+        - text: QA测试,产品
+      - checkbox "标记整篇记录为重点" [checked]
+      - text: 标记为重点成果
+      - strong: 已收录的工作
+      - generic: 3 项
+      - textbox "工作条目1标题": QA-BROWSER-报表
+      - button "移除工作条目1":
+      - textbox "工作条目1成果说明":
+        - /placeholder: 补充具体成果或阶段进展
+      - textbox "工作条目1主题":
+        - /placeholder: 工作主题
+      - checkbox "工作条目1重点成果"
+      - text: 重点成果
+      - generic: "来自任务 #2 · 完成于 2026/10/16 23:27:38"
+      - button "查看原任务":
+        - text: 查看原任务
+      - textbox "工作条目2标题": QA-BROWSER-编辑已保存
+      - button "移除工作条目2":
+      - textbox "工作条目2成果说明":
+        - /placeholder: 补充具体成果或阶段进展
+        - text: 第一行中文备注 第二行 English 😀
+      - textbox "工作条目2主题":
+        - /placeholder: 工作主题
+        - text: QA-项目已更名
+      - checkbox "工作条目2重点成果"
+      - text: 重点成果
+      - generic: "来自任务 #1 · 阶段进展"
+      - button "查看原任务":
+        - text: 查看原任务
+      - textbox "工作条目3标题": QA-手写工作
+      - button "移除工作条目3":
+      - textbox "工作条目3成果说明":
+        - /placeholder: 补充具体成果或阶段进展
+        - text: 手动记录验证
+      - textbox "工作条目3主题":
+        - /placeholder: 工作主题
+        - text: QA测试,产品
+      - checkbox "工作条目3重点成果" [checked]
+      - text: 重点成果
+      - button "手写一项工作":
+        - text: 手写一项工作
+      - strong: 当天工作素材
+      - generic: 4 项
+      - paragraph: 按实际完成日期展示。收录后保留快照，不随原任务改变。
+      - checkbox "包含未完成任务"
+      - text: 包含未完成任务
+      - textbox "搜索任务素材":
+        - /placeholder: 搜索任务素材…
+      - generic: QA-BROWSER-编辑已保存
+      - button "收录任务：QA-BROWSER-编辑已保存" [disabled]:
+      - generic: QA-BROWSER-原任务已更名
+      - button "收录任务：QA-BROWSER-原任务已更名" [disabled]:
+      - generic: QA-BROWSER-报表
+      - button "收录任务：QA-BROWSER-报表":
+      - generic: QA-BROWSER-快速添加
+      - button "收录任务：QA-BROWSER-快速添加":
+      - alert: 保存失败：这份记录已在其他窗口更新，请重新打开后编辑。当前输入已保留。
+      - button "保存日记" [active]:
+        - text: 保存日记
+      - button "删除记录":
+        - text: 删除记录

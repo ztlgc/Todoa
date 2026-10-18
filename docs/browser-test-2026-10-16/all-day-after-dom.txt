@@ -1,0 +1,166 @@
+- main:
+  - paragraph: Todoa
+  - paragraph: 把事情记下来，慢慢完成。
+  - status: 浏览器调试 · 临时数据
+  - button: 快速添加
+  - navigation:
+    - button:
+      - text: 任务
+    - button:
+      - text: 日历
+    - button:
+      - text: 日记
+    - button:
+      - text: 设置
+  - complementary:
+    - navigation:
+      - button:
+        - text: 收件箱
+      - button:
+        - text: 今天
+      - button:
+        - text: 即将到来
+      - button:
+        - text: 清单
+      - button:
+        - text: 标签
+    - heading [level=2]: 我的清单
+    - button:
+    - navigation:
+      - button: QA-项目
+    - region:
+      - heading [level=2]: 标签
+      - button:
+      - navigation:
+        - button: "# QA-工作"
+        - button:
+    - navigation:
+      - button:
+        - text: 已完成
+      - button:
+        - text: 回收站
+  - region:
+    - heading [level=1]: 即将到来
+    - paragraph: 只显示未完成且有截止时间的任务 · 本地日期
+    - paragraph: 请在收件箱或清单中新建任务。
+    - status: 1 项任务 · 0 项已完成
+    - list:
+      - checkbox
+      - checkbox
+      - button: QA-BROWSER-快速添加
+      - generic: 2026-10-23 · 全天
+      - button:
+        - text: 无优先级
+      - generic: 重复：每天
+      - button:
+- dialog:
+  - heading [level=2]: QA-BROWSER-快速添加
+  - banner:
+    - checkbox
+    - checkbox
+    - button:
+      - generic: 2026-10-23
+    - button:
+    - button:
+  - heading [level=2]: QA-BROWSER-快速添加
+  - textbox:
+    - /placeholder: 任务标题
+    - text: QA-BROWSER-快速添加
+  - textbox:
+    - paragraph
+  - paragraph: 添加内容…
+  - contentinfo:
+    - button:
+      - generic: 收件箱
+    - status: 已保存
+    - button:
+    - button:
+    - button:
+- dialog "日期与提醒":
+  - heading "日期与提醒" [level=2]
+  - button "今天" [active]:
+    - generic: 今天
+  - button "明天":
+    - generic: 明天
+  - button "下周":
+    - generic: 下周
+  - generic: 2026年10月
+  - button "上个月":
+  - button "下个月":
+  - generic: 一
+  - generic: 二
+  - generic: 三
+  - generic: 四
+  - generic: 五
+  - generic: 六
+  - generic: 日
+  - button "2026-09-28": "28"
+  - button "2026-09-29": "29"
+  - button "2026-09-30": "30"
+  - button "2026-10-01": "1"
+  - button "2026-10-02": "2"
+  - button "2026-10-03": "3"
+  - button "2026-10-04": "4"
+  - button "2026-10-05": "5"
+  - button "2026-10-06": "6"
+  - button "2026-10-07": "7"
+  - button "2026-10-08": "8"
+  - button "2026-10-09": "9"
+  - button "2026-10-10": "10"
+  - button "2026-10-11": "11"
+  - button "2026-10-12": "12"
+  - button "2026-10-13": "13"
+  - button "2026-10-14": "14"
+  - button "2026-10-15": "15"
+  - button "2026-10-16": "16"
+  - button "2026-10-17": "17"
+  - button "2026-10-18": "18"
+  - button "2026-10-19": "19"
+  - button "2026-10-20": "20"
+  - button "2026-10-21": "21"
+  - button "2026-10-22": "22"
+  - button "2026-10-23" [pressed]: "23"
+  - button "2026-10-24": "24"
+  - button "2026-10-25": "25"
+  - button "2026-10-26": "26"
+  - button "2026-10-27": "27"
+  - button "2026-10-28": "28"
+  - button "2026-10-29": "29"
+  - button "2026-10-30": "30"
+  - button "2026-10-31": "31"
+  - button "2026-11-01": "1"
+  - button "2026-11-02": "2"
+  - button "2026-11-03": "3"
+  - button "2026-11-04": "4"
+  - button "2026-11-05": "5"
+  - button "2026-11-06": "6"
+  - button "2026-11-07": "7"
+  - button "2026-11-08": "8"
+  - button "截止时间":
+    - generic: 选择时间
+  - button "无时间"
+  - text: 提醒
+  - checkbox "准时"
+  - text: 准时
+  - checkbox "提前5分钟"
+  - text: 提前5分钟
+  - checkbox "提前1小时"
+  - text: 提前1小时
+  - checkbox "提前1天"
+  - text: 提前1天
+  - checkbox "提前3天"
+  - text: 提前3天
+  - generic: 提前
+  - spinbutton "自定义提前数量": "1"
+  - combobox "自定义提醒单位":
+    - generic: 小时
+  - textbox: hour
+  - button "添加"
+  - combobox "重复规则":
+    - generic: 每天
+  - textbox: day:1
+  - button "确定"
+  - button "清除"
+  - paragraph: 清除日期会停止重复并取消未触发的自动提醒。
+  - button "关闭":
+    - generic: 关闭

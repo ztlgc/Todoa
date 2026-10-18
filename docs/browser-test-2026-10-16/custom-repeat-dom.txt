@@ -1,0 +1,176 @@
+- main:
+  - paragraph: Todoa
+  - paragraph: 把事情记下来，慢慢完成。
+  - status: 浏览器调试 · 临时数据
+  - button: 快速添加
+  - navigation:
+    - button:
+      - text: 任务
+    - button:
+      - text: 日历
+    - button:
+      - text: 日记
+    - button:
+      - text: 设置
+  - button: 打开任务视图
+  - region:
+    - heading [level=1]: 收件箱
+    - paragraph: 记录待办，按自己的节奏完成。点击标题编辑详情。
+    - form:
+      - generic: 新任务
+      - textbox:
+        - /placeholder: 例如：明天下午3点开会
+      - button: 添加任务
+      - paragraph: 可输入“明天下午3点开会”“每2天整理资料”或“5分钟后提醒我喝水”。
+    - status: 2 项任务 · 0 项已完成
+    - list:
+      - checkbox
+      - checkbox
+      - button: QA-BROWSER-快速添加
+      - button:
+        - text: 无优先级
+      - button:
+      - checkbox
+      - checkbox
+      - button: 提醒我QA-BROWSER-提醒
+      - button:
+        - text: 无优先级
+      - time: 2026/10/17 00:00:00
+      - button:
+- dialog:
+  - heading [level=2]: 提醒我QA-BROWSER-提醒
+  - banner:
+    - checkbox
+    - checkbox
+    - button:
+      - generic: 10月17日 00:00
+    - button:
+    - button:
+  - heading [level=2]: 提醒我QA-BROWSER-提醒
+  - textbox:
+    - /placeholder: 任务标题
+    - text: 提醒我QA-BROWSER-提醒
+  - textbox:
+    - paragraph
+  - paragraph: 添加内容…
+  - contentinfo:
+    - button:
+      - generic: 收件箱
+    - status: 已保存
+    - button:
+    - button:
+    - button:
+- dialog:
+  - heading [level=2]: 日期与提醒
+  - button:
+    - generic: 今天
+  - button:
+    - generic: 明天
+  - button:
+    - generic: 下周
+  - generic: 2026年10月
+  - button:
+  - button:
+  - generic: 一
+  - generic: 二
+  - generic: 三
+  - generic: 四
+  - generic: 五
+  - generic: 六
+  - generic: 日
+  - button: "28"
+  - button: "29"
+  - button: "30"
+  - button: "1"
+  - button: "2"
+  - button: "3"
+  - button: "4"
+  - button: "5"
+  - button: "6"
+  - button: "7"
+  - button: "8"
+  - button: "9"
+  - button: "10"
+  - button: "11"
+  - button: "12"
+  - button: "13"
+  - button: "14"
+  - button: "15"
+  - button: "16"
+  - button [pressed]: "17"
+  - button: "18"
+  - button: "19"
+  - button: "20"
+  - button: "21"
+  - button: "22"
+  - button: "23"
+  - button: "24"
+  - button: "25"
+  - button: "26"
+  - button: "27"
+  - button: "28"
+  - button: "29"
+  - button: "30"
+  - button: "31"
+  - button: "1"
+  - button: "2"
+  - button: "3"
+  - button: "4"
+  - button: "5"
+  - button: "6"
+  - button: "7"
+  - button: "8"
+  - button:
+    - generic: 00:00
+  - button: 无时间
+  - text: 提醒
+  - checkbox [checked]
+  - text: 准时
+  - checkbox
+  - text: 提前5分钟
+  - checkbox
+  - text: 提前1小时
+  - checkbox
+  - text: 提前1天
+  - checkbox
+  - text: 提前3天
+  - generic: 提前
+  - spinbutton: "1"
+  - combobox:
+    - generic: 小时
+  - textbox: hour
+  - button: 添加
+  - combobox:
+    - generic: 不重复
+  - textbox
+  - button: 确定
+  - button: 清除
+  - paragraph: 清除日期会停止重复并取消未触发的自动提醒。
+  - button:
+    - generic: 关闭
+- dialog "自定义重复":
+  - heading "自定义重复" [level=2]
+  - text: 安排方式
+  - combobox "重复计算方式":
+    - option "按计划日期"
+    - option "从完成时刻开始"
+    - option "指定多个日期" [selected]
+  - textbox "添加重复日期"
+  - button "加入"
+  - button "移除日期2026-10-20": 2026-10-20 ×
+  - button "移除日期2026-10-25": 2026-10-25 ×
+  - text: 何时结束
+  - combobox "重复结束方式":
+    - option "持续重复"
+    - option "到指定日期" [selected]
+    - option "达到次数"
+  - textbox "重复结束日期" [active]: 2026-10-20
+  - paragraph: 自选 2 个日期，至 2026-10-20
+  - paragraph: 当前任务之后的安排
+  - list:
+    - listitem: 2026-10-20 00:00
+  - paragraph: 当前任务日期：2026-10-17。完成当前任务后生成下一项。
+  - button "取消"
+  - button "应用重复"
+  - button "关闭":
+    - generic: 关闭

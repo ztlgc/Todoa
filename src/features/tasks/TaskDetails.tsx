@@ -35,6 +35,8 @@ import {
 import { priorityMeta, taskPriorities } from "./taskPriority";
 import { TaskContentEditor } from "./TaskContentEditor";
 import { TaskSchedulePicker } from "./TaskSchedulePicker";
+import { readSubtasks, withSubtasks, type Subtask } from "@/domain/subtask";
+import { TaskSubtasks, type SubtaskInputHandle } from "./TaskSubtasks";
 
 type Props = {
   id: number;
@@ -107,7 +109,7 @@ export function TaskDetails(props: Props) {
   return wide ? (
     <aside
       aria-label="任务详情"
-      className="fixed inset-y-0 right-0 z-20 flex w-[min(460px,38vw)] min-w-80 flex-col border-l bg-background text-sm"
+      className="fixed inset-y-0 right-0 z-20 flex w-[var(--task-inspector-width)] min-w-80 flex-col border-l bg-background text-sm"
     >
       {content}
     </aside>
@@ -160,6 +162,8 @@ function Inspector({
   const initialDoc = useRef<JSONContent>(
     task.contentJson ? JSON.parse(task.contentJson) : plainDocument(task.notes),
   );
+  const [subtasks, setSubtasks] = useState(() => readSubtasks(initialDoc.current));
+  const subtaskInput = useRef<SubtaskInputHandle>(null);
   const [title, setTitle] = useState(task.title),
     [saveState, setSaveState] = useState("已保存"),
     [error, setError] = useState<string>();
@@ -213,8 +217,9 @@ function Inspector({
       if (!composing.current) void flush();
     }, 800);
   }
-  async function flush(): Promise<boolean> {
+  async function flush(commitSubtask = false): Promise<boolean> {
     if (composing.current || imageBusy.current) return false;
+    if (commitSubtask && subtaskInput.current && !subtaskInput.current.commit()) return false;
     if (saving.current) return saving.current;
     if (current.current.sequence === saved.current) return true;
     const work = async () => {
@@ -259,7 +264,7 @@ function Inspector({
   async function close() {
     if (closing.current) return;
     closing.current = true;
-    if (await flush()) onClosed();
+    if (await flush(true)) onClosed();
     closing.current = false;
   }
   useEffect(() => {
@@ -278,7 +283,7 @@ function Inspector({
       setError("恢复草稿无法读取，已保存的内容仍可编辑。");
     }
     const blur = () => {
-      void flush();
+      void flush(true);
     };
     window.addEventListener("blur", blur);
     const escape = (event: KeyboardEvent) => {
@@ -309,9 +314,9 @@ function Inspector({
       event.stopPropagation();
       const element = target instanceof Element ? target : target.parentElement;
       const replay = element?.closest<HTMLElement>(
-        'button,a,input,select,[role="button"]',
+        'button,a,input,select,[role="button"],[role="checkbox"]',
       );
-      void flush().then((ok) => {
+      void flush(true).then((ok) => {
         if (ok) {
           onClosed();
           requestAnimationFrame(() => {
@@ -342,14 +347,20 @@ function Inspector({
       current.current.doc = task.contentJson
         ? JSON.parse(task.contentJson)
         : plainDocument(task.notes);
+      setSubtasks(readSubtasks(current.current.doc));
       setTitle(task.title);
       editor.current?.commands.setContent(current.current.doc, {
         emitUpdate: false,
       });
     }
   }, [task.contentRevision, task.title, task.contentJson, task.notes]);
+  function changeSubtasks(items: Subtask[]) {
+    current.current.doc = withSubtasks(current.current.doc, items);
+    setSubtasks(items);
+    changed();
+  }
   async function attribute(input: UpdateTaskInput) {
-    if (!(await flush())) throw new Error("请先完成正文保存。");
+    if (!(await flush(true))) throw new Error("请先完成正文保存。");
     await update.mutateAsync({ id: task.id, input });
   }
   async function action(kind: "status" | "delete") {
@@ -357,7 +368,7 @@ function Inspector({
     actionBusy.current = true;
     setError(undefined);
     try {
-      if (!(await flush())) return;
+      if (!(await flush(true))) return;
       if (kind === "status")
         await status.mutateAsync({
           id: task.id,
@@ -485,6 +496,7 @@ function Inspector({
                   setTitle(recovery.title);
                   current.current.title = recovery.title;
                   current.current.doc = recovery.doc;
+                  setSubtasks(readSubtasks(recovery.doc));
                   editor.current?.commands.setContent(recovery.doc, {
                     emitUpdate: false,
                   });
@@ -529,6 +541,12 @@ function Inspector({
           }}
           placeholder="任务标题"
         />
+        <TaskSubtasks
+          ref={subtaskInput}
+          items={subtasks}
+          onChange={changeSubtasks}
+          onComposition={value => { composing.current = value; }}
+        />
         <TaskContentEditor
           id={task.id}
           initial={initialDoc.current}
@@ -538,7 +556,7 @@ function Inspector({
             editor.current = e;
           }}
           onChange={(doc) => {
-            current.current.doc = doc;
+            current.current.doc = withSubtasks(doc, readSubtasks(current.current.doc));
             changed();
           }}
           onComposition={(value) => {
@@ -591,6 +609,7 @@ function Inspector({
                 };
                 saved.current = 0;
                 setTitle(task.title);
+                setSubtasks(readSubtasks(current.current.doc));
                 editor.current?.commands.setContent(current.current.doc, {
                   emitUpdate: false,
                 });

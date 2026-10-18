@@ -9,14 +9,16 @@ import { MainQueryProvider } from "@/app/MainQueryProvider";
 import { createLocalQueryClient } from "@/app/queryClient";
 import { initDatabase } from "@/data/db/initDatabase";
 import { taskRepository } from "@/data/repositories/TaskRepository";
+import { contentRepository } from "@/data/repositories/ContentRepository";
 import type { Task } from "@/domain/task";
 import { taskKeys } from "./queryKeys";
-import { useCreateTask, useDeleteTask, useTasks, useUpdateTaskStatus, useUpdateTask } from "./queries";
+import { useCreateTask, useDeleteTask, useTasks, useUpdateTaskStatus, useUpdateTask, useUpdateSubtaskStatus } from "./queries";
 
 vi.mock("@/data/db/initDatabase", () => ({ initDatabase: vi.fn() }));
 vi.mock("@/data/repositories/TaskRepository", () => ({
-  taskRepository: { list: vi.fn(), create: vi.fn(), updateStatus: vi.fn(), delete: vi.fn(), update: vi.fn() },
+  taskRepository: { list: vi.fn(), create: vi.fn(), updateStatus: vi.fn(), delete: vi.fn(), update: vi.fn(), getById: vi.fn() },
 }));
+vi.mock("@/data/repositories/ContentRepository", () => ({ contentRepository: { save: vi.fn() } }));
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ onFocusChanged: vi.fn(async () => vi.fn()), listen: vi.fn(async () => vi.fn()) }),
 }));
@@ -35,7 +37,7 @@ function setupHooks() {
   const hook = renderHook(() => ({
     tasks: useTasks({ listId: null }), create: useCreateTask(),
     update: useUpdateTaskStatus(), remove: useDeleteTask(),
-    edit: useUpdateTask(),
+    edit: useUpdateTask(), subtask: useUpdateSubtaskStatus(),
   }), { wrapper });
   return { ...hook, client };
 }
@@ -106,6 +108,25 @@ describe("Ready boundary and task query keys", () => {
 });
 
 describe("local mutations and cache invalidation", () => {
+  it("toggles a subtask against the latest document revision while offline", async () => {
+    onlineManager.setOnline(false);
+    const doc = { type: "doc", attrs: { subtasks: [
+      { id: "one", title: "新的子任务标题", completed: false, dueAt: "2026-10-20T01:30:00.000Z" },
+      { id: "two", title: "其他子任务", completed: true },
+    ] }, content: [{ type: "paragraph", content: [{ type: "text", text: "其他窗口的新正文", marks: [{ type: "bold" }] }] }] };
+    vi.mocked(taskRepository.getById).mockResolvedValue({ ...task, title: "最新标题", contentJson: JSON.stringify(doc), contentRevision: 8 });
+    vi.mocked(contentRepository.save).mockResolvedValue(9);
+    const { result, client } = setupHooks();
+    await waitFor(() => expect(result.current.tasks.isSuccess).toBe(true));
+    client.setQueryData(taskKeys.detail(1), task);
+    await act(async () => { await result.current.subtask.mutateAsync({ id: 1, subtaskId: "one", completed: true }); });
+    expect(contentRepository.save).toHaveBeenCalledWith(1, "最新标题", {
+      ...doc, attrs: { subtasks: [{ ...doc.attrs.subtasks[0], completed: true }, doc.attrs.subtasks[1]] },
+    }, 8);
+    expect(client.getQueryState(taskKeys.detail(1))?.isInvalidated).toBe(true);
+    expect(result.current.subtask.isPaused).toBe(false);
+  });
+
   it("queries and runs all mutations while offline, refetching the active list", async () => {
     onlineManager.setOnline(false);
     let rows: Task[] = [];

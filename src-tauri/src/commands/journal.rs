@@ -3,6 +3,48 @@ use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 #[tauri::command]
+pub async fn reconcile_journal_tasks(window: WebviewWindow, app: AppHandle) -> Result<(), String> {
+    super::quick_add::source(window.label(), "main")?;
+    if !matches!(
+        app.try_state::<crate::db::BootState>().as_deref(),
+        Some(crate::db::BootState::Ready)
+    ) {
+        return Err("DATABASE_NOT_READY".into());
+    }
+    let _lease = app.state::<crate::lifecycle::Lifecycle>().write()?;
+    let pool = crate::db::shared_pool(&app).await?;
+    crate::services::journal_automation::reconcile(&pool)
+        .await
+        .map_err(String::from)
+}
+
+#[tauri::command]
+pub async fn create_journal_follow_up(
+    window: WebviewWindow,
+    app: AppHandle,
+    date: String,
+    item_id: String,
+) -> Result<i64, String> {
+    super::quick_add::source(window.label(), "main")?;
+    if !matches!(
+        app.try_state::<crate::db::BootState>().as_deref(),
+        Some(crate::db::BootState::Ready)
+    ) {
+        return Err("DATABASE_NOT_READY".into());
+    }
+    let _lease = app.state::<crate::lifecycle::Lifecycle>().write()?;
+    let pool = crate::db::shared_pool(&app).await?;
+    crate::services::journal::create_follow_up(
+        &pool,
+        &date,
+        &item_id,
+        crate::services::reminders::now(),
+    )
+    .await
+    .map_err(String::from)
+}
+
+#[tauri::command]
 pub async fn export_journal_markdown(
     window: WebviewWindow,
     app: AppHandle,

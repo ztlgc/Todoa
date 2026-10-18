@@ -4,11 +4,17 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLocalQueryClient } from "@/app/queryClient";
 import { taskRepository } from "@/data/repositories/TaskRepository";
+import { contentRepository, plainText } from "@/data/repositories/ContentRepository";
+import { readSubtasks } from "@/domain/subtask";
 import type { Task } from "@/domain/task";
 import { Inbox, TaskListView, TrashView } from "./Inbox";
 
 vi.mock("@/data/repositories/TaskRepository", () => ({
   taskRepository: { list: vi.fn(), create: vi.fn(), update: vi.fn(), updateStatus: vi.fn(), trash: vi.fn(), restore: vi.fn(), delete: vi.fn(), getById: vi.fn() },
+}));
+vi.mock("@/data/repositories/ContentRepository", async importOriginal => ({
+  ...await importOriginal<typeof import("@/data/repositories/ContentRepository")>(),
+  contentRepository: { save: vi.fn() },
 }));
 const task: Task = {
   id: 1, listId: null, title: "Buy milk", notes: "", status: "todo",
@@ -42,6 +48,52 @@ beforeEach(() => {
   vi.mocked(taskRepository.trash).mockImplementation(async () => { rows = []; });
 });
 afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear()); });
+
+it("renders and toggles real subtask checkboxes without duplicating projected notes", async () => {
+  const doc = { type: "doc", attrs: { subtasks: [
+    { id: "one", title: "核对资料", completed: true, dueDate: "2026-10-20" },
+    { id: "two", title: "整理纪要", completed: false },
+  ] }, content: [{ type: "paragraph", content: [{ type: "text", text: "正文保留 [x] 示例" }] }] };
+  rows = [{ ...task, notes: plainText(doc), contentJson: JSON.stringify(doc), contentRevision: 3 }];
+  vi.mocked(contentRepository.save).mockImplementation(async (id, title, next, revision) => {
+    rows = rows.map(row => row.id === id ? { ...row, title, contentJson: JSON.stringify(next), notes: plainText(next), contentRevision: revision + 1 } : row);
+    return revision + 1;
+  });
+  renderInbox();
+  const checked = await screen.findByRole("checkbox", { name: "取消完成子任务：核对资料" });
+  expect(checked.getAttribute("aria-checked")).toBe("true");
+  expect(screen.getByText("核对资料").className).toContain("line-through");
+  expect(screen.queryByText("[x] 核对资料")).toBeNull();
+  expect(screen.getByText("正文保留 [x] 示例")).toBeTruthy();
+  fireEvent.click(screen.getByRole("checkbox", { name: "完成子任务：整理纪要" }));
+  await screen.findByRole("checkbox", { name: "取消完成子任务：整理纪要" });
+  expect(readSubtasks(JSON.parse(rows[0].contentJson!))).toEqual([
+    expect.objectContaining({ id: "one", completed: true, dueDate: "2026-10-20" }),
+    expect.objectContaining({ id: "two", completed: true }),
+  ]);
+  expect(screen.queryByLabelText("任务标题")).toBeNull();
+  fireEvent.click(screen.getByRole("checkbox", { name: "取消完成子任务：核对资料" }));
+  await screen.findByRole("checkbox", { name: "完成子任务：核对资料" });
+  expect(readSubtasks(JSON.parse(rows[0].contentJson!))[0].completed).toBe(false);
+});
+
+it("retains subtask state and body after a failed card toggle", async () => {
+  const doc = { type: "doc", attrs: { subtasks: [{ id: "one", title: "核对资料", completed: true }] }, content: [] };
+  rows = [{ ...task, contentJson: JSON.stringify(doc), notes: "[x] 核对资料" }];
+  vi.mocked(contentRepository.save).mockRejectedValue(new Error("CONTENT_CONFLICT"));
+  renderInbox();
+  fireEvent.click(await screen.findByRole("checkbox", { name: "取消完成子任务：核对资料" }));
+  await screen.findByText("子任务状态保存失败，请重试。");
+  expect(screen.getByRole("checkbox", { name: "取消完成子任务：核对资料" }).getAttribute("aria-checked")).toBe("true");
+  expect(rows[0].contentJson).toBe(JSON.stringify(doc));
+});
+
+it("keeps ordinary notes and readable fallback text intact", async () => {
+  rows = [{ ...task, notes: "[x] 手写备注", contentJson: "{broken" }];
+  renderInbox();
+  await screen.findByText("[x] 手写备注");
+  expect(screen.queryByRole("checkbox", { name: /子任务/ })).toBeNull();
+});
 
 it("distinguishes loading, empty and read failure", async () => {
   let loaded!: (value: Task[]) => void;

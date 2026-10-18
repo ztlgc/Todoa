@@ -2,3 +2,13 @@
 identifier = "main-journal-export"
 description = "Main may export journal Markdown through the native save dialog."
 commands.allow = ["export_journal_markdown"]
+
+[[permission]]
+identifier = "main-journal-follow-up"
+description = "Main may create a follow-up task linked atomically to a saved journal item."
+commands.allow = ["create_journal_follow_up"]
+
+[[permission]]
+identifier = "main-journal-automation"
+description = "Main may reconcile available task completion snapshots into daily journals."
+commands.allow = ["reconcile_journal_tasks"]

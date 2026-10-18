@@ -126,6 +126,53 @@ afterEach(() => {
   cleanup();
   client?.clear();
 });
+it("saves subtasks together with body edits and their completion state", async () => {
+  const closed = setup();
+  fireEvent.click(await screen.findByRole("button", { name: "添加子任务" }));
+  const input = screen.getByLabelText("新子任务");
+  for (const title of ["确认现场需求", "提交验收清单"]) {
+    fireEvent.change(input, { target: { value: title } });
+    fireEvent.keyDown(input, { key: "Enter" });
+  }
+  fireEvent.change(screen.getByLabelText("任务内容"), { target: { value: "补充说明" } });
+  fireEvent.click(screen.getByLabelText("完成子任务：确认现场需求"));
+  fireEvent.click(screen.getByLabelText("关闭任务详情"));
+  await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+  expect(contentRepository.save).toHaveBeenLastCalledWith(1, "原始标题", {
+    type: "doc",
+    attrs: { subtasks: [
+      expect.objectContaining({ title: "确认现场需求", completed: true }),
+      expect.objectContaining({ title: "提交验收清单", completed: false }),
+    ] },
+    content: [{ type: "paragraph", content: [{ type: "text", text: "补充说明" }] }],
+  }, 0);
+});
+it("commits an unfinished subtask entry on close and retains it when saving fails", async () => {
+  vi.mocked(contentRepository.save).mockRejectedValue(new Error("磁盘写入失败"));
+  const closed = setup();
+  fireEvent.click(await screen.findByRole("button", { name: "添加子任务" }));
+  fireEvent.change(screen.getByLabelText("新子任务"), { target: { value: "保留这项工作" } });
+  fireEvent.click(screen.getByLabelText("关闭任务详情"));
+  await screen.findByText("保存失败，草稿已保留。请重试。");
+  expect(closed).not.toHaveBeenCalled();
+  expect(localStorage.getItem("todoa-content-draft-1")).toContain("保留这项工作");
+  expect(screen.getByLabelText("完成子任务：保留这项工作")).toBeTruthy();
+});
+it("keeps an invalid inline subtask edit open until corrected", async () => {
+  const closed = setup();
+  fireEvent.click(await screen.findByRole("button", { name: "添加子任务" }));
+  fireEvent.change(screen.getByLabelText("新子任务"), { target: { value: "核对需求" } });
+  fireEvent.keyDown(screen.getByLabelText("新子任务"), { key: "Enter" });
+  const title = screen.getByLabelText("子任务内容：核对需求");
+  fireEvent.change(title, { target: { value: " " } });
+  fireEvent.click(screen.getByLabelText("关闭任务详情"));
+  await screen.findByRole("alert");
+  expect(closed).not.toHaveBeenCalled();
+  fireEvent.change(title, { target: { value: "核对验收需求" } });
+  fireEvent.click(screen.getByLabelText("关闭任务详情"));
+  await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+  expect(vi.mocked(contentRepository.save).mock.lastCall?.[2].attrs?.subtasks[0].title).toBe("核对验收需求");
+});
 it("saves title and content on close while retaining the inspector after normal saves", async () => {
   const closed = setup();
   fireEvent.change(await screen.findByLabelText("任务标题"), {
@@ -147,6 +194,23 @@ it("saves title and content on close while retaining the inspector after normal 
     },
     0,
   );
+});
+it("saves an inspector draft before replaying an outside checkbox click", async () => {
+  const closed = setup(), clicked = vi.fn();
+  const checkbox = document.createElement("span");
+  checkbox.setAttribute("role", "checkbox");
+  checkbox.onclick = clicked;
+  document.body.append(checkbox);
+  try {
+    await screen.findByLabelText("任务标题");
+    fireEvent.change(screen.getByLabelText("任务内容"), { target: { value: "卡片勾选前的新正文" } });
+    closed.mockImplementation(() => cleanup());
+    fireEvent.click(checkbox);
+    expect(clicked).not.toHaveBeenCalled();
+    await waitFor(() => expect(clicked).toHaveBeenCalledOnce());
+    expect(contentRepository.save).toHaveBeenCalledWith(1, "原始标题", expect.objectContaining({ content: [{ type: "paragraph", content: [{ type: "text", text: "卡片勾选前的新正文" }] }] }), 0);
+    expect(closed).toHaveBeenCalledOnce();
+  } finally { checkbox.remove(); }
 });
 it("preserves drafts and blocks close after save failures, then retries", async () => {
   vi.mocked(contentRepository.save).mockRejectedValueOnce(new Error("locked"));

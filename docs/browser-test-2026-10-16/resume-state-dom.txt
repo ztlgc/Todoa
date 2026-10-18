@@ -1,0 +1,49 @@
+- main:
+  - paragraph: Todoa
+  - paragraph: 把事情记下来，慢慢完成。
+  - status: 浏览器调试 · 临时数据
+  - button "快速添加"
+  - navigation "一级导航":
+    - button "任务":
+      - text: 任务
+    - button "日历":
+      - text: 日历
+    - button "日记":
+      - text: 日记
+    - button "设置":
+      - text: 设置
+  - complementary "任务导航与管理":
+    - navigation "任务视图":
+      - button "打开收件箱":
+        - text: 收件箱
+      - button "打开今天":
+        - text: 今天
+      - button "打开即将到来":
+        - text: 即将到来
+      - button "打开清单":
+        - text: 清单
+      - button "打开标签":
+        - text: 标签
+    - heading "我的清单" [level=2]
+    - button "新建清单":
+    - navigation "任务清单"
+    - region "标签":
+      - heading "标签" [level=2]
+      - button "新建标签":
+      - navigation "按标签查看任务"
+    - navigation "任务归档":
+      - button "打开已完成":
+        - text: 已完成
+      - button "打开回收站":
+        - text: 回收站
+  - region "收件箱":
+    - heading "收件箱" [level=1]
+    - paragraph: 记录待办，按自己的节奏完成。点击标题编辑详情。
+    - form "新增任务":
+      - generic: 新任务
+      - textbox "新任务":
+        - /placeholder: 例如：明天下午3点开会
+      - button "添加任务"
+      - paragraph: 可输入“明天下午3点开会”“每2天整理资料”或“5分钟后提醒我喝水”。
+    - paragraph: 收件箱为空
+    - paragraph: 在上方添加第一项任务。

@@ -14,6 +14,8 @@ fn main() {
             "restore_database",
             "restore_status",
             "export_journal_markdown",
+            "create_journal_follow_up",
+            "reconcile_journal_tasks",
             "show_quick_add",
             "hide_quick_add",
             "create_quick_task",

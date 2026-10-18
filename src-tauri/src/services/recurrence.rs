@@ -320,6 +320,7 @@ mod tests {
                 include_str!("../../migrations/0004_task_trash.sql"),
                 include_str!("../../migrations/0005_journal.sql"),
                 include_str!("../../migrations/0006_task_content.sql"),
+                include_str!("../../migrations/0007_journal_task_completions.sql"),
             ] {
                 sqlx::raw_sql(migration).execute(&pool).await.unwrap();
             }

@@ -100,6 +100,12 @@ async fn fixture() -> (
         .execute(&pool)
         .await
         .unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../migrations/0007_journal_task_completions.sql"
+    ))
+    .execute(&pool)
+    .await
+    .unwrap();
     let task = crate::services::quick_add::create(&pool, "fresh title")
         .await
         .unwrap();

@@ -1,0 +1,23 @@
+{
+  "started": "2026-10-16",
+  "completed": "2026-10-17",
+  "target": "Todoa source 1.0.4 browser",
+  "origin": "http://127.0.0.1:1422",
+  "total": 93,
+  "counts": {
+    "通过": 89,
+    "修复后通过": 4
+  },
+  "pending": 0,
+  "complete": true,
+  "fixes": 4,
+  "tests": 237,
+  "testFiles": 34,
+  "lint": "passed",
+  "build": "passed",
+  "diffCheck": "passed",
+  "deletionAuthorized": true,
+  "journalExportsIdentical": true,
+  "nativeAcceptance": "separate and not claimed",
+  "runtimeSampleState": "temporary task data reset after page reload; QA journals remain"
+}

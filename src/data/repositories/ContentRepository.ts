@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isBrowserDebug } from "@/app/browserDebug";
 import { browserTaskRepository } from "@/data/browserRepositories";
+import { parseTaskNotes, parseTaskTitle } from "@/domain/task";
 import type { JSONContent } from "@tiptap/react";
+import { subtaskText } from "@/domain/subtask";
 
 const images = new Map<number, { blob: Blob; tasks: Set<number> }>();
 let sequence = 0;
@@ -23,24 +25,21 @@ export function plainText(doc: JSONContent): string {
     (["paragraph", "heading", "hardBreak", "listItem"].includes(n.type ?? "")
       ? "\n"
       : "");
-  return visit(doc).trimEnd();
+  return [subtaskText(doc), visit(doc).trimEnd()].filter(Boolean).join("\n");
 }
 export const contentRepository = {
   async save(id: number, title: string, doc: JSONContent, revision: number) {
     const json = JSON.stringify(doc);
-    if (
-      !title.trim() ||
-      title.length > 500 ||
-      plainText(doc).length > 100000 ||
-      json.length > 2000000
-    )
+    const parsedTitle = parseTaskTitle(title);
+    const notes = parseTaskNotes(plainText(doc));
+    if (json.length > 2000000)
       throw new Error("标题或内容超出长度限制。");
     if (!isBrowserDebug())
-      return invoke<number>("save_task_content", { id, title, json, revision });
+      return invoke<number>("save_task_content", { id, title: parsedTitle, json, revision });
     const task = await browserTaskRepository.getById(id);
     if (!task || (task.contentRevision ?? 0) !== revision)
       throw new Error("CONTENT_CONFLICT");
-    await browserTaskRepository.update(id, { title, notes: plainText(doc) });
+    await browserTaskRepository.update(id, { title: parsedTitle, notes });
     Object.assign(task, { contentJson: json, contentRevision: revision + 1 });
     return revision + 1;
   },

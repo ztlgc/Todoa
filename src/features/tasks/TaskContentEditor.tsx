@@ -16,6 +16,7 @@ import { contentRepository } from "@/data/repositories/ContentRepository";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { TaskLinkDialog } from "./TaskLinkDialog";
 
 function LocalImage({
   node,
@@ -164,6 +165,7 @@ export function TaskContentEditor({
     [importing, setImporting] = useState(false),
     [selected, setSelected] = useState(false),
     [renderRevision, setRender] = useState(0);
+  const [linkHref, setLinkHref] = useState<string | null>(null);
   const toolbarOpen = useRef(false);
   toolbarOpen.current = showTools || selected;
   const editor = useEditor({
@@ -323,7 +325,7 @@ export function TaskContentEditor({
       onCompositionEnd={() => callbacks.current.onComposition(false)}
     >
       <Popover.Root
-        open={showTools || selected}
+        open={linkHref === null && (showTools || selected)}
         onOpenChange={(open) => {
           if (!open) {
             setSelected(false);
@@ -389,15 +391,9 @@ export function TaskContentEditor({
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  const href = window.prompt(
-                    "链接地址（https://…）",
-                    editor.getAttributes("link").href ?? "",
-                  );
-                  if (href === null) return;
-                  if (!href) editor.chain().focus().unsetLink().run();
-                  else if (/^(https?:\/\/|mailto:)/.test(href))
-                    editor.chain().focus().setLink({ href }).run();
-                  else setError("请输入 http、https 或 mailto 链接。");
+                  setLinkHref(editor.getAttributes("link").href ?? "");
+                  setSelected(false);
+                  callbacks.current.onToolsClosed?.();
                 }}
               >
                 链接
@@ -406,6 +402,13 @@ export function TaskContentEditor({
           </Popover.Positioner>
         </Popover.Portal>
       </Popover.Root>
+      {linkHref !== null && <TaskLinkDialog initialHref={linkHref} returnTo={editor.view.dom}
+        onApply={href => {
+          const chain = editor.chain().focus().extendMarkRange("link");
+          if (href) chain.setLink({ href }).run();
+          else chain.unsetLink().run();
+        }}
+        onClosed={() => setLinkHref(null)} />}
       <div className="relative">
         <EditorContent editor={editor} />
         {editor.isEmpty && (

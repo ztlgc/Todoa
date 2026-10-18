@@ -1,0 +1,12 @@
+{
+  "planned": 100,
+  "results": {
+    "通过": 3,
+    "失败": 0,
+    "部分通过": 2,
+    "受限未执行": 95
+  },
+  "native_functional_test_complete": false,
+  "user_ready_retry_completed": true,
+  "database_unchanged": true
+}

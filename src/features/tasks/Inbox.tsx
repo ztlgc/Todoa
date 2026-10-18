@@ -11,7 +11,8 @@ import { TaskInputFeedback } from "./TaskInputFeedback";
 import { Flag, Trash2 } from "lucide-react";
 import { priorityMeta } from "./taskPriority";
 import { taskPriorities } from "./taskPriority";
-import { useCreateTask, useDeleteTask, useRestoreTask, useTasks, useTrashTask, useUpdateTask, useUpdateTaskStatus } from "./queries";
+import { useCreateTask, useDeleteTask, useRestoreTask, useTasks, useTrashTask, useUpdateTask, useUpdateTaskStatus, useUpdateSubtaskStatus } from "./queries";
+import { TaskSummary } from "./TaskSummary";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { toLocalInput } from "@/domain/taskDates";
@@ -20,11 +21,18 @@ import { Check } from "lucide-react";
 
 function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task: Task, returnTo: HTMLElement | null) => void }) {
   const priority = priorityMeta(task.priority);
-  const update = useUpdateTaskStatus(), updateTask = useUpdateTask(), remove = useTrashTask();
+  const update = useUpdateTaskStatus(), updateTask = useUpdateTask(), remove = useTrashTask(), updateSubtask = useUpdateSubtaskStatus();
   const [error, setError] = useState<string>();
   const [priorityOpen, setPriorityOpen] = useState(false);
   const writing = useRef(false);
-  const pending = update.isPending || remove.isPending;
+  const pending = update.isPending || remove.isPending || updateSubtask.isPending;
+  async function changeSubtask(id: string, completed: boolean) {
+    if (writing.current) return;
+    writing.current = true; setError(undefined);
+    try { await updateSubtask.mutateAsync({ id: task.id, subtaskId: id, completed }); }
+    catch { setError("子任务状态保存失败，请重试。"); }
+    finally { writing.current = false; }
+  }
   async function changeStatus(checked: boolean) {
     if (writing.current) return;
     writing.current = true; setError(undefined);
@@ -62,7 +70,7 @@ function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task:
           {task.dueAt && <span className="shrink-0 text-muted-foreground"><time dateTime={task.dueAt}>{new Date(task.dueAt).toLocaleString()}</time>{task.status === "todo" && task.dueAt < now.toISOString() && <span className="ml-2 rounded bg-destructive/10 px-2 py-0.5 text-destructive">逾期</span>}</span>}
           {task.repeatRule && <span className="shrink-0 text-muted-foreground">重复：{repeatRuleLabel(task.repeatRule)}</span>}
         </div>
-        {task.notes && <p className="line-clamp-2 break-all whitespace-pre-wrap text-sm text-muted-foreground">{task.notes}</p>}
+        <TaskSummary task={task} disabled={pending} onToggle={(id, completed) => void changeSubtask(id, completed)} />
       </div>
       <Button variant="ghost" size="icon-sm" disabled={pending} onClick={() => void deleteTask()} aria-label={`移入回收站：${task.title}`} title="移入回收站"><Trash2 aria-hidden="true" className="size-4" /></Button>
     </div>
@@ -99,7 +107,7 @@ export function TaskListView({ listId, tagId, name, lists = [], listsUnavailable
     catch (cause) { setError(cause === "REMINDER_MUST_BE_FUTURE" || (cause instanceof Error && cause.message.includes("提醒时间")) ? "提醒时间已过去，请调整输入的日期或时间。" : "新增失败，输入已保留。请稍后重试。"); }
     finally { submitting.current = false; onBusyChange?.(false); }
   }
-  return <section aria-labelledby="inbox-heading" className={`space-y-6 ${detail ? "min-[1100px]:pr-[min(456px,38vw)]" : ""}`}>
+  return <section aria-labelledby="inbox-heading" className={`space-y-6 ${detail ? "task-list-with-details" : ""}`}>
     {switchConfirmation}
     <header className="space-y-2"><h1 id="inbox-heading" tabIndex={-1} className="break-all text-3xl font-semibold tracking-tight outline-none">{name}</h1><p className="text-sm text-muted-foreground">{dateFilters?.status === "completed" ? "显示收件箱和所有清单中已完成的任务。" : dateFilters ? "只显示未完成且有截止时间的任务 · 本地日期" : "记录待办，按自己的节奏完成。点击标题编辑详情。"}</p></header>
     {canCreate ? <form autoComplete="off" aria-label="新增任务" onSubmit={event => void submit(event)} className="space-y-2 rounded-xl border border-border bg-card p-4">

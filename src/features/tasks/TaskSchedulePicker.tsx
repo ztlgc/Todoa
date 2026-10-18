@@ -41,7 +41,7 @@ export function TaskSchedulePicker({
 }) {
   const initial = toLocalInput(task.dueAt);
   const [date, setDate] = useState(task.dueDate ?? initial.slice(0, 10));
-  const [time, setTime] = useState(initial.slice(11, 16) || "09:00");
+  const [time, setTime] = useState(task.dueDate ? "" : initial.slice(11, 16) || "09:00");
   const [timeOpen, setTimeOpen] = useState(false);
   const [draftTime, setDraftTime] = useState("09:00");
   const hourColumn = useRef<HTMLDivElement>(null);
@@ -246,7 +246,7 @@ export function TaskSchedulePicker({
             <Bell className="mt-1 size-4 shrink-0" />
             <div className="min-w-0 flex-1 space-y-2">
               <span>提醒</span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2" aria-label="提醒选项">
                 {reminderPresets.map((n) => (
                   <label key={n} className="flex items-center gap-1 text-xs">
                     <input
@@ -263,6 +263,18 @@ export function TaskSchedulePicker({
                     />
                     {reminderLabel(n)}
                   </label>
+                ))}
+                {offsets.filter((n) => !reminderPresets.includes(n)).map((n) => (
+                  <Button
+                    key={n}
+                    size="sm"
+                    variant="secondary"
+                    className="h-6 px-1.5 text-xs"
+                    disabled={busy}
+                    onClick={() => setOffsets(offsets.filter((v) => v !== n))}
+                  >
+                    {reminderLabel(n)} ×
+                  </Button>
                 ))}
               </div>
               <div className="flex items-center gap-1">
@@ -314,25 +326,6 @@ export function TaskSchedulePicker({
                 <p className="text-xs text-muted-foreground">
                   已选提醒，请设置日期和时间后保存。
                 </p>
-              )}
-              {offsets.some((n) => !reminderPresets.includes(n)) && (
-                <div className="flex flex-wrap gap-1">
-                  {offsets
-                    .filter((n) => !reminderPresets.includes(n))
-                    .map((n) => (
-                      <Button
-                        key={n}
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy}
-                        onClick={() =>
-                          setOffsets(offsets.filter((v) => v !== n))
-                        }
-                      >
-                        {reminderLabel(n)} ×
-                      </Button>
-                    ))}
-                </div>
               )}
             </div>
           </div>

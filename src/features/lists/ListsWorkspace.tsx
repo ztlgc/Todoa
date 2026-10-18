@@ -128,7 +128,10 @@ export function ListsWorkspace() {
   async function navigate(next: View, id: number | null = null, tag: number | null = null, afterWrite = false) {
     if (childBusy.current || (writing.current && !afterWrite)) return;
     if (next === view && id === selectedId && tag === selectedTagId) return;
-    if ((taskDirty.current || renameDirty.current || detailDirty.current) && !(await confirm("当前任务输入或清单名称尚未保存。放弃输入并切换视图？"))) return;
+    const unsavedMessage = activeView === "journal" && detailDirty.current
+      ? "当前日记尚未保存，离开后将保留本地草稿，是否切换视图？"
+      : "当前任务输入或清单名称尚未保存。放弃输入并切换视图？";
+    if ((taskDirty.current || renameDirty.current || detailDirty.current) && !(await confirm(unsavedMessage, activeView === "journal" ? "离开并保留草稿" : "放弃输入并继续"))) return;
     taskDirty.current = false; renameDirty.current = false; detailDirty.current = false;
     setTaskDraft("");
     setSelectedId(id); setSelectedTagId(tag); setView(next); setManagingList(false);

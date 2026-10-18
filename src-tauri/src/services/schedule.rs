@@ -44,7 +44,9 @@ fn stamp(date: DateTime<Utc>) -> String {
     date.to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 fn valid_rule(rule: &str) -> bool {
-    if rule.starts_with('{') { return super::recurrence::parse(rule).is_some(); }
+    if rule.starts_with('{') {
+        return super::recurrence::parse(rule).is_some();
+    }
     if matches!(rule, "week-monday" | "weekday" | "weekend" | "month-last") {
         return true;
     }
@@ -235,10 +237,14 @@ pub async fn update(
     {
         return Err("INVALID_REPEAT_RULE");
     }
-    let offsets = if next_due_time.is_none() { vec![] } else { input.reminder_offsets.clone().unwrap_or(
-        serde_json::from_str::<Vec<i64>>(&row.get::<String, _>("reminder_offsets"))
-            .map_err(|_| "INVALID_REMINDER_RULE")?,
-    ) };
+    let offsets = if next_due_time.is_none() {
+        vec![]
+    } else {
+        input.reminder_offsets.clone().unwrap_or(
+            serde_json::from_str::<Vec<i64>>(&row.get::<String, _>("reminder_offsets"))
+                .map_err(|_| "INVALID_REMINDER_RULE")?,
+        )
+    };
     if offsets.len() > 16
         || offsets.iter().any(|n| !(0..=525600).contains(n))
         || (next_due_time.is_none() && !offsets.is_empty())
@@ -325,7 +331,9 @@ pub(super) fn local_time(naive: NaiveDateTime) -> DateTime<Utc> {
     resolved.with_timezone(&Utc)
 }
 pub fn next_due(prior: DateTime<Utc>, rule: &str, after: DateTime<Utc>) -> Option<DateTime<Utc>> {
-    if rule.starts_with('{') { return super::recurrence::next(prior, &super::recurrence::parse(rule)?, after); }
+    if rule.starts_with('{') {
+        return super::recurrence::next(prior, &super::recurrence::parse(rule)?, after);
+    }
     let local = prior.with_timezone(&Local);
     let mut date = local.date_naive();
     let clock = local.time();
@@ -513,6 +521,12 @@ mod tests {
                 .execute(&pool)
                 .await
                 .unwrap();
+            sqlx::raw_sql(include_str!(
+                "../../migrations/0007_journal_task_completions.sql"
+            ))
+            .execute(&pool)
+            .await
+            .unwrap();
 
             let now = DateTime::parse_from_rfc3339("2026-10-05T01:00:00Z")
                 .unwrap()

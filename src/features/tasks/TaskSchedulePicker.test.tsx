@@ -35,6 +35,7 @@ it("allows reminder drafts without a time and saves hour/day offsets after the t
   });
   fireEvent.click(screen.getByRole("button", { name: "添加" }));
   expect(screen.getByRole("button", { name: "提前2小时 ×" })).toBeTruthy();
+  expect(screen.getByLabelText("提醒选项").contains(screen.getByRole("button", { name: "提前2小时 ×" }))).toBe(true);
   fireEvent.click(screen.getByRole("combobox", { name: "自定义提醒单位" }));
   await chooseOption("天");
   fireEvent.click(screen.getByRole("button", { name: "添加" }));
@@ -94,7 +95,7 @@ it("discards cancelled time changes and clears time together with reminders", as
   fireEvent.click(screen.getByRole("button", { name: "59分" }));
   fireEvent.click(screen.getByRole("button", { name: "取消" }));
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "选择时间" })).toBeNull());
-  expect(screen.getByRole("button", { name: "截止时间" }).textContent).toContain("09:00");
+  expect(screen.getByRole("button", { name: "截止时间" }).textContent).toContain("选择时间");
   fireEvent.click(screen.getByRole("button", { name: "截止时间" }));
   expect(screen.getByRole("button", { name: "09时" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByRole("button", { name: "00分" }).getAttribute("aria-pressed")).toBe("true");
@@ -104,6 +105,17 @@ it("discards cancelled time changes and clears time together with reminders", as
   fireEvent.click(screen.getByRole("button", { name: "无时间" }));
   fireEvent.click(screen.getByRole("button", { name: "确定" }));
   await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ dueAt: null, dueDate: "2099-10-08", reminderOffsets: [] })));
+});
+
+it("preserves an all-day schedule when reopened and moved to another date", async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  render(<TaskSchedulePicker task={{ ...task, dueDate: "2099-10-08", repeatRule: "day:1" }} onSave={save} onClosed={() => {}} />);
+  expect(screen.getByRole("button", { name: "截止时间" }).textContent).toContain("选择时间");
+  fireEvent.click(screen.getByRole("button", { name: "确定" }));
+  await waitFor(() => expect(save).toHaveBeenLastCalledWith({ dueAt: null, dueDate: "2099-10-08", repeatRule: "day:1", reminderOffsets: [] }));
+  fireEvent.click(screen.getByRole("button", { name: "2099-10-09" }));
+  fireEvent.click(screen.getByRole("button", { name: "确定" }));
+  await waitFor(() => expect(save).toHaveBeenLastCalledWith({ dueAt: null, dueDate: "2099-10-09", repeatRule: "day:1", reminderOffsets: [] }));
 });
 
 it("defaults a new schedule to 09:00 and preserves existing exact times", async () => {

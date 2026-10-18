@@ -1,11 +1,22 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from "vitest";
 import { emptyJournal } from "@/domain/journal";
-import { JournalRepository, JOURNAL_STORAGE_KEY } from "./JournalRepository";
+import { JournalRepository, JOURNAL_STORAGE_KEY, WORK_JOURNAL_TEST_STORAGE_KEY } from "./JournalRepository";
 
 const input = { ...emptyJournal("day", "2026-10-07"), text: "每日成果", items: [{ id: "snapshot", title: "原始任务标题", notes: "完成联调", taskId: 1, completedAt: "2026-10-07T02:00:00.000Z", theme: "项目A", important: true }] };
 const repo = () => new JournalRepository(undefined, () => true, () => localStorage);
 beforeEach(() => localStorage.clear());
+it("isolates the real-work dataset without overwriting ordinary browser journals", async () => {
+  await repo().save(input, 0);
+  const original = localStorage.getItem(JOURNAL_STORAGE_KEY);
+  const preview = () => new JournalRepository(undefined, () => true, () => localStorage, WORK_JOURNAL_TEST_STORAGE_KEY);
+  await preview().save({ ...input, text: "真实工作样本" }, 0);
+  expect((await preview().list())[0].text).toBe("真实工作样本");
+  await preview().remove((await preview().list())[0]);
+  expect((await preview().list())[0].deletedAt).toBeTruthy();
+  expect(localStorage.getItem(JOURNAL_STORAGE_KEY)).toBe(original);
+  expect((await repo().list())[0].deletedAt).toBeNull();
+});
 it("persists independent task snapshots and period summaries across repository reloads", async () => {
   await repo().save(input, 0);
   await repo().save({ ...emptyJournal("week", input.start), text: "周总结正文" }, 0);

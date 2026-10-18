@@ -1,0 +1,104 @@
+- main:
+  - paragraph: Todoa
+  - paragraph: 把事情记下来，慢慢完成。
+  - status: 浏览器调试 · 临时数据
+  - button "快速添加"
+  - navigation "一级导航":
+    - button "任务":
+      - text: 任务
+    - button "日历":
+      - text: 日历
+    - button "日记":
+      - text: 日记
+    - button "设置":
+      - text: 设置
+  - complementary "设置分组":
+    - navigation "设置分组":
+      - button "常规":
+        - text: 常规
+      - button "功能设置":
+        - text: 功能设置
+      - button "提醒与通知":
+        - text: 提醒与通知
+      - button "统计":
+        - text: 统计
+      - button "数据":
+        - text: 数据
+      - button "关于":
+        - text: 关于
+  - region "统计":
+    - heading "统计" [level=1]
+    - paragraph: 统计当前保留的全部任务，包含收件箱和所有清单。
+    - region "完成热力图":
+      - heading "完成热力图" [level=2]
+      - paragraph: 按本地完成日期统计
+      - group "热力图视图":
+        - button "月视图" [pressed]: 月
+        - button "年视图": 年
+      - button "上个月":
+      - generic: 2026 年 10 月
+      - button "下个月":
+      - button "本月"
+      - paragraph:
+        - text: 完成
+        - strong: "2"
+        - text: 项 · 活跃
+        - strong: "1"
+        - text: 天
+      - group "2026年10月每日完成数量":
+        - button "2026-10-01：完成 0 项": "1"
+        - button "2026-10-02：完成 0 项": "2"
+        - button "2026-10-03：完成 0 项": "3"
+        - button "2026-10-04：完成 0 项": "4"
+        - button "2026-10-05：完成 0 项": "5"
+        - button "2026-10-06：完成 0 项": "6"
+        - button "2026-10-07：完成 0 项": "7"
+        - button "2026-10-08：完成 0 项": "8"
+        - button "2026-10-09：完成 0 项": "9"
+        - button "2026-10-10：完成 0 项": "10"
+        - button "2026-10-11：完成 0 项": "11"
+        - button "2026-10-12：完成 0 项": "12"
+        - button "2026-10-13：完成 0 项": "13"
+        - button "2026-10-14：完成 0 项": "14"
+        - button "2026-10-15：完成 0 项" [active] [pressed]: "15"
+        - button "2026-10-16：完成 2 项": "16"
+        - button "2026-10-17：完成 0 项": "17"
+        - button "2026-10-18：完成 0 项": "18"
+        - button "2026-10-19：完成 0 项": "19"
+        - button "2026-10-20：完成 0 项": "20"
+        - button "2026-10-21：完成 0 项": "21"
+        - button "2026-10-22：完成 0 项": "22"
+        - button "2026-10-23：完成 0 项": "23"
+        - button "2026-10-24：完成 0 项": "24"
+        - button "2026-10-25：完成 0 项": "25"
+        - button "2026-10-26：完成 0 项": "26"
+        - button "2026-10-27：完成 0 项": "27"
+        - button "2026-10-28：完成 0 项": "28"
+        - button "2026-10-29：完成 0 项": "29"
+        - button "2026-10-30：完成 0 项": "30"
+        - button "2026-10-31：完成 0 项": "31"
+      - status: 2026-10-15：完成 0 项
+      - generic "颜色依次表示完成 0 项、1 至 2 项、3 至 5 项、6 至 9 项、10 项及以上":
+        - generic: 少
+        - generic "0 项"
+        - generic "1–2 项"
+        - generic "3–5 项"
+        - generic "6–9 项"
+        - generic "10 项及以上"
+        - generic: 多
+      - paragraph: 每天从左到右、再从上到下排列。悬停或点击查看数量；仅计入当前保留且已完成的任务。
+    - paragraph: 全部任务
+    - paragraph: "3"
+    - paragraph: 待办任务
+    - paragraph: "1"
+    - paragraph: 已完成
+    - paragraph: "2"
+    - paragraph: 已逾期
+    - paragraph: "0"
+    - heading "完成进度" [level=2]
+    - paragraph: 已完成任务占全部任务的比例
+    - strong: 67%
+    - progressbar "任务完成率"
+    - heading "今天到期" [level=2]
+    - paragraph: 0 项待办任务
+    - paragraph: 按本地日期统计；逾期指截止时刻已过且尚未完成。

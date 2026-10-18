@@ -12,11 +12,11 @@ const guides = [
   },
   {
     title: "清单、标签与日历", icon: FolderOpen,
-    tips: ["用清单区分项目或生活事项，在任务详情底部选择所属清单；标签用于跨清单分类。", "使用「今天」「即将到来」安排近期工作，并为重要任务设置优先级。", "在「日历」中选择日期查看安排，点击任务打开详情；「设置 → 统计」查看任务完成情况。"],
+    tips: ["用清单区分客户维护、授信申报、贷后管理等工作；标签用于跨清单分类。", "使用「今天」「即将到来」安排客户拜访、资料收集与跟进，并为重要事项设置优先级。", "在「日历」中选择日期查看安排，点击任务打开详情；「设置 → 统计」查看任务完成情况。"],
   },
   {
     title: "日记与年度回顾", icon: BookOpen,
-    tips: ["进入「日记」，用左侧日历选择日期，点击「写一笔」记录当天总结；可收录已完成任务，或手写工作进展。", "点击「保存日记」保存修改。收录的任务保留历史快照，之后修改或删除原任务不会改动日记。", "切换日／周／月／年查看记录；阶段总结可「整理本期素材」后编辑保存。用主题、重点和搜索筛选，再导出 Markdown；删除的日记可在日记回收站恢复。"],
+    tips: ["进入「日记」，在「随手记一件」填写事项，可补充客户、业务类型、沟通方式和状态；「记录今天」与「补记」明确区分日期。", "填写下一步和跟进时间，可直接创建待办。未提交输入自动保留本地草稿；完整日记通过「整理当天日记」编辑，任务快照保留当时的事实。", "按客户或关键词默认搜索全部历史，状态与业务类型精确到事项；周／月／年总结可按完成、在途、等待与下一步整理素材，再导出 Markdown。"],
   },
   {
     title: "快速添加与后台使用", icon: Zap,
@@ -32,12 +32,12 @@ export function AboutSettings({ version }: { version?: string }) {
   return <div className="mt-5 space-y-6">
     <div className="rounded-xl border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold">Todoa</h2><span className="rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground">版本 {version ?? "读取中…"}</span></div>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">把事情记下来，慢慢完成。用任务安排当下，用日记留下成果，在年终回看这一年的工作。</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">为银行对公客户经理提供本地工作安排与客户跟进记录。随手记录沟通、推进业务、安排下一步，再按客户和周期回顾。</p>
     </div>
     <section aria-labelledby="getting-started-heading" className="rounded-xl border bg-muted/30 p-5">
       <h2 id="getting-started-heading" className="font-semibold">从这里开始</h2>
       <ol className="mt-3 grid list-inside list-decimal gap-3 text-sm leading-6 lg:grid-cols-3">
-        <li>在收件箱写下今天要做的事。</li><li>完成后勾选任务，去日记记录成果。</li><li>每周、每月整理总结，年终回看全年。</li>
+        <li>用待办安排客户拜访与业务跟进。</li><li>在日记随手记录沟通和业务进展。</li><li>按客户回顾历史，按周期整理总结。</li>
       </ol>
     </section>
     <section aria-labelledby="usage-guide-heading">

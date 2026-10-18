@@ -19,6 +19,8 @@
     "main-reminders",
     "main-backup-restore",
     "main-journal-export",
+    "main-journal-follow-up",
+    "main-journal-automation",
     "main-task-content",
     "main-autostart",
     "main-preferences"

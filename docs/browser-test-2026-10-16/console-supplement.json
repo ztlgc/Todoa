@@ -1,0 +1,44 @@
+[
+  {
+    "level": "error",
+    "message": "Error: prompt() is not supported.\n    at onClick (http://127.0.0.1:1422/src/features/tasks/TaskContentEditor.tsx:390:30)\n    at http://127.0.0.1:1422/node_modules/.vite/deps/useRenderElement-CnElnE1X.js?v=17bbebf0:493:10\n    at onClick (http://127.0.0.1:1422/node_modules/.vite/deps/useButton-DTBy3tuH.js?v=17bbebf0:109:23)\n    at http://127.0.0.1:1422/node_modules/.vite/deps/useRenderElement-CnElnE1X.js?v=17bbebf0:493:10\n    at executeDispatch (http://127.0.0.1:1422/node_modules/.vite/deps/react-dom_client.js?v=17bbebf0:9906:5)\n    at runWithFiberInDEV (http://127.0.0.1:1422/node_modules/.vite/deps/react-dom_client.js?v=17bbebf0:944:66)\n    at processDispatchQueue (http://127.0.0.1:1422/node_modules/.vite/deps/react-dom_client.js?v=17bbebf0:9932:27)\n    at http://127.0.0.1:1422/node_modules/.vite/deps/react-dom_client.js?v=17bbebf0:10201:5\n    at batchedUpdates$1 (http://127.0.0.1:1422/node_modules/.vite/deps/react-dom_client.js?v=17bbebf0:2145:12)\n    at dispatchEventForPluginEventSystem (http://127.0.0.1:1422/node_modules/.vite/deps/react-dom_client.js?v=17bbebf0:10005:4)",
+    "timestamp": "2026-10-16T16:05:37.189Z",
+    "url": "http://127.0.0.1:1422/src/features/tasks/TaskContentEditor.tsx"
+  },
+  {
+    "level": "warn",
+    "message": "linkifyjs: already initialized - will not register custom scheme \"http\" until manual call of linkify.init(). Register all schemes and plugins before invoking linkify the first time.",
+    "timestamp": "2026-10-16T16:07:46.521Z",
+    "url": "http://127.0.0.1:1422/@vite/client"
+  },
+  {
+    "level": "warn",
+    "message": "linkifyjs: already initialized - will not register custom scheme \"https\" until manual call of linkify.init(). Register all schemes and plugins before invoking linkify the first time.",
+    "timestamp": "2026-10-16T16:07:46.522Z",
+    "url": "http://127.0.0.1:1422/@vite/client"
+  },
+  {
+    "level": "warn",
+    "message": "linkifyjs: already initialized - will not register custom scheme \"mailto\" until manual call of linkify.init(). Register all schemes and plugins before invoking linkify the first time.",
+    "timestamp": "2026-10-16T16:07:46.522Z",
+    "url": "http://127.0.0.1:1422/@vite/client"
+  },
+  {
+    "level": "warn",
+    "message": "linkifyjs: already initialized - will not register custom scheme \"http\" until manual call of linkify.init(). Register all schemes and plugins before invoking linkify the first time.",
+    "timestamp": "2026-10-16T16:07:46.523Z",
+    "url": "http://127.0.0.1:1422/@vite/client"
+  },
+  {
+    "level": "warn",
+    "message": "linkifyjs: already initialized - will not register custom scheme \"https\" until manual call of linkify.init(). Register all schemes and plugins before invoking linkify the first time.",
+    "timestamp": "2026-10-16T16:07:46.523Z",
+    "url": "http://127.0.0.1:1422/@vite/client"
+  },
+  {
+    "level": "warn",
+    "message": "linkifyjs: already initialized - will not register custom scheme \"mailto\" until manual call of linkify.init(). Register all schemes and plugins before invoking linkify the first time.",
+    "timestamp": "2026-10-16T16:07:46.523Z",
+    "url": "http://127.0.0.1:1422/@vite/client"
+  }
+]

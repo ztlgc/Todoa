@@ -2,11 +2,11 @@ mod commands;
 mod db;
 mod global_shortcut;
 mod lifecycle;
+mod preferences;
 mod reminder_scheduler;
 mod services;
 mod tray;
 mod window_state;
-mod preferences;
 
 use tauri::{Manager, State, WebviewWindow};
 
@@ -73,6 +73,8 @@ pub fn run() {
             commands::backup::restore_database,
             commands::backup::restore_status,
             commands::journal::export_journal_markdown,
+            commands::journal::create_journal_follow_up,
+            commands::journal::reconcile_journal_tasks,
             commands::quick_add::show_quick_add,
             commands::quick_add::hide_quick_add,
             commands::quick_add::create_quick_task,
