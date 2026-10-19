@@ -1,0 +1,101 @@
+.daily-journal { min-width:0; color:var(--foreground); }
+.daily-header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px; }
+.daily-header h1 { font-size:28px; font-weight:650; line-height:1.3; outline:none; }
+.daily-eyebrow { color:var(--muted-foreground); font-size:12px; margin-bottom:5px; letter-spacing:.08em; }
+.daily-header-actions,.daily-date-actions,.daily-note-actions { display:flex; align-items:center; gap:6px; }
+.daily-more { position:relative; }
+.daily-menu { position:absolute; right:0; top:100%; width:174px; padding:5px; z-index:20; background:var(--popover); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px #0001; display:grid; }
+.daily-menu button { justify-content:flex-start; }
+.daily-layout { display:grid; grid-template-columns:230px minmax(0,1fr); gap:20px; }
+.daily-sidebar { min-width:0; display:grid; gap:16px; align-self:start; }
+.daily-calendar-card { --journal-green:#32674f; padding:24px 16px 18px; border:1px solid var(--border); border-radius:14px; background:color-mix(in srgb,var(--muted) 45%,var(--card)); }
+.daily-calendar-brand { display:flex; align-items:center; gap:9px; margin-bottom:28px; }
+.daily-calendar-brand>span { display:grid; place-items:center; width:34px; height:39px; border-radius:10px; background:color-mix(in srgb,var(--journal-green) 9%,var(--card)); color:var(--journal-green); flex-shrink:0; }
+.daily-calendar-brand strong { font-size:14px; font-weight:600; }
+.daily-calendar-brand small { display:block; margin-top:5px; font-size:11px; color:var(--muted-foreground); }
+.daily-calendar-heading { display:flex; justify-content:space-between; align-items:center; gap:5px; margin-bottom:12px; }
+.daily-calendar-heading h2 { font-size:12px; font-weight:600; }
+.daily-calendar-heading>div { display:flex; align-items:center; gap:2px; }
+.daily-calendar-heading button { display:grid; place-items:center; min-width:23px; height:28px; padding:3px; border-radius:4px; color:var(--muted-foreground); font-size:11px; cursor:pointer; }
+.daily-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px 0; text-align:center; }
+.daily-calendar-grid small { color:var(--muted-foreground); font-size:11px; padding-bottom:5px; }
+.daily-calendar-grid button { position:relative; height:28px; font-size:12px; border-radius:6px; cursor:pointer; }
+.daily-calendar-card button:hover { background:var(--muted); }
+.daily-calendar-card button:focus-visible { outline:2px solid var(--journal-green); outline-offset:2px; }
+.daily-calendar-card button:disabled { opacity:.35; cursor:default; }
+.daily-calendar-grid [aria-current="date"] { box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--journal-green) 45%,transparent); }
+.daily-calendar-grid [aria-pressed="true"],.daily-calendar-grid [aria-pressed="true"]:hover { color:white; background:var(--journal-green); }
+.daily-calendar-dot { position:absolute; bottom:2px; left:calc(50% - 1.5px); height:3px; width:3px; border-radius:50%; background:var(--journal-green); }
+.daily-calendar-grid [aria-pressed="true"] .daily-calendar-dot { background:white; }
+.daily-calendar-grid [data-in-range="true"]:not([aria-pressed="true"]) { background:color-mix(in srgb,var(--journal-green) 9%,var(--card)); }
+.daily-scope { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; padding:4px; border:1px solid var(--border); border-radius:9px; background:var(--muted); }
+.daily-scope button { padding:7px 3px; font-size:12px; color:var(--muted-foreground); border-radius:6px; cursor:pointer; }
+.daily-scope button:hover { color:var(--foreground); }
+.daily-scope [aria-pressed="true"] { background:var(--card); color:var(--foreground); box-shadow:0 1px 3px #0001; font-weight:600; }
+.daily-scope button:focus-visible { outline:2px solid var(--ring); outline-offset:1px; }
+.daily-scope button:disabled { opacity:.5; cursor:default; }
+.daily-range-entry { padding:24px 0; border-bottom:1px solid var(--border); }
+.daily-range-entry:last-child { border-bottom:0; padding-bottom:0; }
+.daily-range-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+.daily-range-heading h2 { font-size:15px; font-weight:600; }
+.daily-range-entry .daily-completed { padding:16px 0; border:0; }
+.daily-range-entry .daily-completed .daily-section-heading { margin-bottom:6px; }
+.daily-range-entry .daily-completed .daily-empty { padding:8px 0; }
+.daily-range-supplement>h3 { font-size:13px; font-weight:500; color:var(--muted-foreground); margin:6px 0 12px; }
+.daily-range-note { font-size:14px; line-height:1.9; overflow-wrap:anywhere; }
+.daily-range-note p { margin:6px 0; white-space:pre-wrap; }
+.daily-range-note ul { list-style:disc; padding-left:22px; }
+.daily-range-note ol { list-style:decimal; padding-left:22px; }
+.daily-range-note h3 { font-size:16px; font-weight:600; margin:12px 0 6px; }
+.daily-range-note blockquote { border-left:3px solid var(--border); padding-left:14px; color:var(--muted-foreground); }
+.daily-range-note a { color:var(--primary); text-decoration:underline; }
+.daily-range-note code { padding:2px 4px; border-radius:4px; background:var(--muted); }
+.daily-range-note pre { overflow:auto; padding:12px; border-radius:6px; background:var(--muted); white-space:pre; }
+.daily-range-note pre code { padding:0; }
+.daily-range-note hr { margin:16px 0; border-color:var(--border); }
+.daily-range-image { min-height:40px; margin:12px 0; font-size:12px; color:var(--muted-foreground); }
+.daily-range-image img { max-width:100%; max-height:400px; object-fit:contain; border-radius:8px; }
+.daily-page { min-width:0; border:1px solid var(--border); border-radius:16px; background:var(--card); padding:28px 32px; }
+.daily-datebar { display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding-bottom:24px; border-bottom:1px solid var(--border); }
+.daily-datebar h2 { font-size:18px; font-weight:600; }
+.daily-datebar p { font-size:12px; color:var(--muted-foreground); margin-top:6px; }
+.daily-date-picker { position:relative; display:grid; place-items:center; width:32px; height:32px; border-radius:6px; cursor:pointer; }
+.daily-date-picker:hover { background:var(--muted); }
+.daily-date-picker input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.daily-date-picker input::-webkit-calendar-picker-indicator { position:absolute; inset:0; width:100%; height:100%; cursor:pointer; }
+.daily-date-picker:focus-within { outline:2px solid var(--ring); outline-offset:2px; }
+.daily-section-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+.daily-section-heading h2 { font-size:14px; font-weight:600; }
+.daily-section-heading h2 span { margin-left:6px; font-size:12px; color:var(--muted-foreground); font-weight:400; }
+.daily-auto-label,.daily-note-actions>span { font-size:12px; color:var(--muted-foreground); }
+.daily-completed { padding:24px 0; border-bottom:1px solid var(--border); }
+.daily-task-list { list-style:none; margin:0; padding:0; }
+.daily-task-list li { display:flex; gap:10px; align-items:flex-start; padding:12px 0; border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent); }
+.daily-task-list li:last-child { border-bottom:0; }
+.daily-task-list li>svg { color:var(--primary); flex-shrink:0; margin-top:3px; }
+.daily-task-list details { min-width:0; flex:1; }
+.daily-task-list summary { display:flex; gap:16px; justify-content:space-between; cursor:pointer; font-size:14px; list-style:none; }
+.daily-task-list summary::-webkit-details-marker { display:none; }
+.daily-task-list summary>span { overflow-wrap:anywhere; }
+.daily-task-list time { flex-shrink:0; color:var(--muted-foreground); font-size:12px; line-height:22px; font-variant-numeric:tabular-nums; }
+.daily-task-list details p { white-space:pre-wrap; font-size:13px; color:var(--muted-foreground); line-height:1.8; margin-top:9px; overflow-wrap:anywhere; }
+.daily-task-list .is-revoked { opacity:.6; }
+.daily-task-list .is-revoked summary>span { text-decoration:line-through; }
+.daily-note { padding-top:20px; }
+.daily-note .task-content { min-height:320px; overflow-wrap:anywhere; padding-bottom:40px; }
+.daily-empty { padding:22px 0; color:var(--muted-foreground); font-size:13px; line-height:1.8; }
+.daily-history { min-width:0; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 12px; align-self:start; }
+.daily-search { display:flex; align-items:center; gap:4px; color:var(--muted-foreground); }
+.daily-search input { min-width:0; font-size:12px; }
+.daily-history-list { max-height:650px; overflow:auto; margin-top:12px; }
+.daily-history-item { display:flex; align-items:center; gap:4px; }
+.daily-history-item>button:first-child { text-align:left; padding:12px 10px; border-radius:8px; display:grid; gap:5px; flex:1; min-width:0; cursor:pointer; }
+.daily-history-item>button:hover,.daily-history-item [aria-current] { background:var(--muted); }
+.daily-history-item strong { font-size:13px; font-weight:500; }
+.daily-history-item span { font-size:11px; color:var(--muted-foreground); }
+.daily-error,.daily-recovery { margin:12px 0; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:13px; }
+.daily-error { color:var(--destructive); }
+.daily-notice { font-size:13px; color:var(--muted-foreground); margin-top:14px; }
+@media(min-width:1250px) { .daily-page { padding:32px; } }
+@media(max-width:900px) { .daily-layout { grid-template-columns:1fr; } .daily-calendar-card,.daily-scope { max-width:340px; width:100%; } .daily-history-list { max-height:220px; } .daily-page { padding:20px; } }
+@media(max-width:550px) { .daily-page { padding:18px 14px; border-radius:12px; } .daily-header { margin-bottom:16px; } .daily-eyebrow { letter-spacing:0; } .daily-datebar h2 { font-size:15px; } .daily-datebar { gap:14px; padding-bottom:18px; } .daily-task-list summary { gap:8px; } }

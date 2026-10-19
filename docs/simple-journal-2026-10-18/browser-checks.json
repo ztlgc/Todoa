@@ -1,0 +1,16 @@
+{
+  "checks": [
+    "Real task completion creates a simple daily page without business fields",
+    "Shared editor saves bold text, lists and a real local image",
+    "Navigation flushes notes and new task archival preserves the whole document",
+    "Restored month calendar highlights the selected day and browsing months retains the open note",
+    "Calendar date selection flushes notes and updates handwritten journal day markers",
+    "Refresh preserves task snapshots, formatting and IndexedDB image data",
+    "Date changes autosave independently and history searches note text",
+    "Actual Markdown download contains completed tasks, formatting and embedded image",
+    "Deleted journal remains deleted after refresh and restoration retains all content",
+    "Legacy monthly summaries remain readable through history",
+    "390px journal and shared formatting toolbar remain within the viewport"
+  ],
+  "errors": []
+}

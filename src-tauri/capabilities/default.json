@@ -21,6 +21,7 @@
     "main-journal-export",
     "main-journal-follow-up",
     "main-journal-automation",
+    "main-journal-content",
     "main-task-content",
     "main-autostart",
     "main-preferences"

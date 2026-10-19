@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "Week shows saved daily tasks, formatted notes and local images, without creating a period summary",
+    "Month lists journals newest first, preserves lists and links, and excludes trash and legacy summaries",
+    "Previous and next month move the time window correctly",
+    "Year includes all current-year daily journals and supports previous year and return to this year",
+    "Opening a dated journal returns to the editor and switching back to a period saves the last input",
+    "Calendar date selection keeps the chosen scope and updates the natural period",
+    "Period export includes only the displayed daily journals and images, and offers no bulk trash action",
+    "390px scope controls and yearly journals have no horizontal overflow"
+  ],
+  "errors": []
+}

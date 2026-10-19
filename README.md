@@ -18,6 +18,10 @@ Todoa 是面向银行对公客户经理的本地 Windows 工作安排与客户�
 
 ![按日期显示示例任务的月历和当日任务列表](docs/screenshots/calendar.jpg)
 
+### 每日工作日记
+
+![自动完成清单与完整补充编辑区](docs/simple-journal-2026-10-18/daily-journal-wide.png)
+
 ### 日期、时间与重复
 
 ![统一风格的重复菜单](docs/screenshots/repeat-menu-1.0.4.jpg)
@@ -36,15 +40,15 @@ Todoa 是面向银行对公客户经理的本地 Windows 工作安排与客户�
 - 完成热力图支持月／年视图，日期从左到右填满后换行，随窗口宽度调整。
 - 通过独立的快速添加窗口或 `Ctrl+Shift+Space` 全局快捷键记录任务；可从系统托盘找回窗口。
 - 查看本地任务统计，在桌面版中备份与恢复数据库，并设置开机启动。
-- 完成任务后自动生成当天的[客户工作日记](docs/JOURNAL.md)，启动时检查补录，自动快照与手写补充分开保存。快捷记录客户、业务类型、沟通方式和事项状态，下一步安排可直接创建跟进待办；支持跨日期搜索、精确筛选、周／月／年总结和 Markdown 导出。
+- 完成任务后自动生成当天的[客户工作日记](docs/JOURNAL.md)，启动时检查补录，自动快照与手写补充分开保存。每天一页，上方查看完成清单，下方用与任务详情一致的完整编辑器补充文字、格式和图片，自动保存；支持日／周／月／年范围浏览、日期切换、历史搜索、旧总结读取和含图片的 Markdown 导出。
 
 ## 安装与数据
 
-1. 在 [GitHub Release v1.0.4](https://github.com/ztlgc/Todoa/releases/tag/v1.0.4) 获取 Windows x64 安装程序并运行。
+1. 在 [GitHub Release v1.0.5](https://github.com/ztlgc/Todoa/releases/tag/v1.0.5) 获取 Windows x64 安装程序并运行。
 2. 首次启动后，在收件箱输入任务；点击任务标题可编辑详情。
 3. 在「设置 → 数据」中创建备份。备份文件**未加密**，请自行妥善保存。
 
-桌面版的数据库位于 `%APPDATA%\com.todoa.desktop\todo.db`。浏览器任务是临时数据，刷新后会清空；浏览器日记单独保存在 localStorage，刷新后保留。浏览器数据不会进入桌面数据库。当前安装包未进行代码签名；Windows 10 x64 开发机上的构建、自动化测试及隔离身份原生界面检查已经完成。1.0.4 安装包的安装后操作、Windows 11 运行、安装版通知显示、真实登录自启及跨显示器 DPI 仍需目标环境验证。项目未提供自动更新服务。
+桌面版的数据库位于 `%APPDATA%\com.todoa.desktop\todo.db`。浏览器任务是临时数据，刷新后会清空；浏览器日记保存在 localStorage，日记图片保存在 IndexedDB，刷新后保留。浏览器数据不会进入桌面数据库。当前安装包未进行代码签名；本版已通过 Windows x64 构建、安装包归档与版本核验及自动化测试，新增日记操作已在生产浏览器预览中验证。1.0.5 安装包的安装后操作、Windows 11 运行、安装版通知显示、真实登录自启及跨显示器 DPI 仍需目标环境验证。项目未提供自动更新服务。
 
 ## 开发与构建
 
@@ -75,4 +79,4 @@ pnpm tauri build --ci --bundles nsis --target x86_64-pc-windows-msvc
 - `src-tauri/`：Windows 窗口、托盘、快捷键、数据库迁移、提醒调度及安装包配置。
 - `docs/PROJECT_STATE.md`：开发过程、验收证据和仍需验证的边界。
 
-Todoa 1.0.4 是 Windows x64 发布版本；没有账号、云同步或协作功能。
+Todoa 1.0.5 是 Windows x64 发布版本；没有账号、云同步或协作功能。

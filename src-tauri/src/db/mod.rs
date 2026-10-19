@@ -7,7 +7,7 @@ use tauri_plugin_sql::{DbInstances, DbPool, Migration, MigrationKind};
 pub mod backup;
 
 pub const DATABASE_URL: &str = "sqlite:todo.db";
-pub const SCHEMA_VERSION: i64 = 7;
+pub const SCHEMA_VERSION: i64 = 8;
 const APPLICATION_ID: i64 = 0x5754_4431;
 
 #[derive(Clone, Copy)]
@@ -71,6 +71,12 @@ pub fn plugin<R: Runtime>(
                     version: 7,
                     description: "journal_task_completions",
                     sql: include_str!("../../migrations/0007_journal_task_completions.sql"),
+                    kind: MigrationKind::Up,
+                },
+                Migration {
+                    version: 8,
+                    description: "journal_content",
+                    sql: include_str!("../../migrations/0008_journal_content.sql"),
                     kind: MigrationKind::Up,
                 },
             ],
@@ -252,6 +258,8 @@ async fn verify_pool(pool: &SqlitePool, expected_path: &Path) -> Result<(), &'st
         ("table", "settings"),
         ("table", "journal_records"),
         ("table", "journal_task_completions"),
+        ("table", "journal_assets"),
+        ("index", "idx_journal_assets_owner"),
         ("index", "idx_journal_completions_day"),
         ("index", "idx_journal_completions_task"),
         ("table", "task_assets"),

@@ -15,8 +15,8 @@ const guides = [
     tips: ["用清单区分客户维护、授信申报、贷后管理等工作；标签用于跨清单分类。", "使用「今天」「即将到来」安排客户拜访、资料收集与跟进，并为重要事项设置优先级。", "在「日历」中选择日期查看安排，点击任务打开详情；「设置 → 统计」查看任务完成情况。"],
   },
   {
-    title: "日记与年度回顾", icon: BookOpen,
-    tips: ["进入「日记」，在「随手记一件」填写事项，可补充客户、业务类型、沟通方式和状态；「记录今天」与「补记」明确区分日期。", "填写下一步和跟进时间，可直接创建待办。未提交输入自动保留本地草稿；完整日记通过「整理当天日记」编辑，任务快照保留当时的事实。", "按客户或关键词默认搜索全部历史，状态与业务类型精确到事项；周／月／年总结可按完成、在途、等待与下一步整理素材，再导出 Markdown。"],
+    title: "每日工作日记", icon: BookOpen,
+    tips: ["进入「日记」默认打开今天，完成的任务会自动归入当天，点击任务名称可展开完成时的备注。", "在「工作补充」直接输入，支持与任务详情相同的格式、列表、链接和本地图片，停止输入后自动保存；保存失败时保留草稿并可重试。", "通过日期切换或「历史」搜索日记，旧阶段总结仍可查看。「更多」提供含图片的 Markdown 导出与回收站。"],
   },
   {
     title: "快速添加与后台使用", icon: Zap,
@@ -32,12 +32,12 @@ export function AboutSettings({ version }: { version?: string }) {
   return <div className="mt-5 space-y-6">
     <div className="rounded-xl border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold">Todoa</h2><span className="rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground">版本 {version ?? "读取中…"}</span></div>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">为银行对公客户经理提供本地工作安排与客户跟进记录。随手记录沟通、推进业务、安排下一步，再按客户和周期回顾。</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">为银行对公客户经理提供本地工作安排与客户跟进记录。用待办安排客户跟进，自动汇集每天完成的任务，并补充沟通与工作记录。</p>
     </div>
     <section aria-labelledby="getting-started-heading" className="rounded-xl border bg-muted/30 p-5">
       <h2 id="getting-started-heading" className="font-semibold">从这里开始</h2>
       <ol className="mt-3 grid list-inside list-decimal gap-3 text-sm leading-6 lg:grid-cols-3">
-        <li>用待办安排客户拜访与业务跟进。</li><li>在日记随手记录沟通和业务进展。</li><li>按客户回顾历史，按周期整理总结。</li>
+        <li>用待办安排客户拜访与业务跟进。</li><li>在日记随手记录沟通和业务进展。</li><li>查看每日完成任务，补充工作记录。</li>
       </ol>
     </section>
     <section aria-labelledby="usage-guide-heading">

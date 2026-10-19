@@ -43,7 +43,7 @@ const inputSchema = z.object({
   items: z.array(journalItemSchema).max(1000),
 });
 export type JournalInput = z.infer<typeof inputSchema>;
-export type JournalRecord = JournalInput & { revision: number; createdAt: string; updatedAt: string; deletedAt: string | null };
+export type JournalRecord = JournalInput & { revision: number; createdAt: string; updatedAt: string; deletedAt: string | null; contentJson?: string | null; contentRevision?: number };
 export function parseJournalDraft(value: unknown): JournalInput {
   const parsed = inputSchema.extend({ items: z.array(journalItemSchema.extend({ title: text(500) })).max(1000) }).parse(value);
   const period = journalPeriod(parsed.kind, parsed.start);

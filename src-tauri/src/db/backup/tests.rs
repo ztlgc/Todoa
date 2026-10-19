@@ -8,12 +8,107 @@ use tempfile::TempDir;
 const TIME: &str = "2026-10-04T01:02:03.004Z";
 
 #[test]
+fn rich_journal_and_local_images_round_trip_through_backup() {
+    tauri::async_runtime::block_on(async {
+        let source = TempDir::new().unwrap();
+        let destination = TempDir::new().unwrap();
+        let pool = database(source.path(), "task").await;
+        database(destination.path(), "previous").await.close().await;
+        let image = b"\x89PNG\r\n\x1a\nlocal-journal-image";
+        let asset = crate::services::journal_content::import_image(
+            &pool,
+            "day",
+            "2026-10-18",
+            "image/png",
+            image,
+        )
+        .await
+        .unwrap();
+        let doc=serde_json::json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"工作补充","marks":[{"type":"bold"}]}]},{"type":"image","attrs":{"src":format!("todoa-asset:{asset}")}}]}).to_string();
+        crate::services::journal_content::save(&pool, "day", "2026-10-18", &doc, 0)
+            .await
+            .unwrap();
+        let target = source.path().join("journal-content.db");
+        backup(&pool, source.path(), &target, false).await.unwrap();
+        validate(&target).await.unwrap();
+        stage(destination.path(), &target).await.unwrap();
+        before_boot(destination.path()).await.unwrap();
+        let read = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(SqliteConnectOptions::new().filename(destination.path().join("todo.db")))
+            .await
+            .unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, String>(
+                "SELECT content_json FROM journal_records WHERE period_start='2026-10-18'"
+            )
+            .fetch_one(&read)
+            .await
+            .unwrap(),
+            doc
+        );
+        assert_eq!(
+            crate::services::journal_content::read_image(&read, "day", "2026-10-18", asset)
+                .await
+                .unwrap()
+                .1,
+            image
+        );
+        read.close().await;
+        pool.close().await;
+    });
+}
+
+#[test]
+fn schema_seven_backup_upgrades_without_changing_journals_or_completion_snapshots() {
+    tauri::async_runtime::block_on(async {
+        let root = TempDir::new().unwrap();
+        let pool = database(root.path(), "task").await;
+        sqlx::raw_sql("DROP TABLE journal_assets; ALTER TABLE journal_records DROP COLUMN content_json; ALTER TABLE journal_records DROP COLUMN content_revision; DELETE FROM _sqlx_migrations WHERE version=8; PRAGMA user_version=7;").execute(&pool).await.unwrap();
+        crate::services::reminders::update_status(&pool, 1, "completed", 1791104523004)
+            .await
+            .unwrap();
+        let manual: Vec<(String, String)> =
+            sqlx::query_as("SELECT body,items_json FROM journal_records")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        let snapshots: Vec<String> = sqlx::query_scalar("SELECT id FROM journal_task_completions")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        let target = root.path().join("schema-seven.db");
+        backup(&pool, root.path(), &target, false).await.unwrap();
+        validate(&target).await.unwrap();
+        sqlx::raw_sql(include_str!("../../../migrations/0008_journal_content.sql"))
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            sqlx::query_as::<_, (String, String)>("SELECT body,items_json FROM journal_records")
+                .fetch_all(&pool)
+                .await
+                .unwrap(),
+            manual
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, String>("SELECT id FROM journal_task_completions")
+                .fetch_all(&pool)
+                .await
+                .unwrap(),
+            snapshots
+        );
+        pool.close().await;
+    });
+}
+
+#[test]
 fn schema_six_backup_remains_accepted_before_automatic_journal_migration() {
     tauri::async_runtime::block_on(async {
         let source = TempDir::new().unwrap();
         let pool = database(source.path(), "Schema six task").await;
         // Recreate the exact previous schema/history, with its handwritten data.
-        sqlx::raw_sql("DROP TABLE journal_task_completions; DELETE FROM _sqlx_migrations WHERE version=7; PRAGMA user_version=6;")
+        sqlx::raw_sql("DROP TABLE journal_assets; ALTER TABLE journal_records DROP COLUMN content_json; ALTER TABLE journal_records DROP COLUMN content_revision; DROP TABLE journal_task_completions; DELETE FROM _sqlx_migrations WHERE version>=7; PRAGMA user_version=6;")
             .execute(&pool).await.unwrap();
         let target = source.path().join("schema-six-backup.db");
         backup(&pool, source.path(), &target, false).await.unwrap();
@@ -212,6 +307,13 @@ async fn database(root: &Path, title: &str) -> SqlitePool {
                 "journal_task_completions".into(),
                 MigrationType::ReversibleUp,
                 include_str!("../../../migrations/0007_journal_task_completions.sql").into(),
+                false,
+            ),
+            Migration::new(
+                8,
+                "journal_content".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0008_journal_content.sql").into(),
                 false,
             ),
         ]),

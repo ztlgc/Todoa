@@ -17,7 +17,7 @@ async fn pool(window: &WebviewWindow) -> Result<SqlitePool, &'static str> {
     crate::db::shared_pool(window.app_handle()).await
 }
 
-fn document(
+pub(crate) fn document(
     node: &Value,
     depth: usize,
     assets: &mut Vec<i64>,

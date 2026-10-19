@@ -280,29 +280,26 @@ async fn inspect(c: &mut SqliteConnection) -> Result<()> {
         include_str!("../../migrations/0007_journal_task_completions.sql").into(),
         false,
     );
-    let expected = if version == 1 {
-        vec![initial]
-    } else if version == 2 {
-        vec![initial, schedule]
-    } else if version == 3 {
-        vec![initial, schedule, priority]
-    } else if version == 4 {
-        vec![initial, schedule, priority, trash]
-    } else if version == 5 {
-        vec![initial, schedule, priority, trash, journal]
-    } else if version == 6 {
-        vec![initial, schedule, priority, trash, journal, content]
-    } else {
-        vec![
-            initial,
-            schedule,
-            priority,
-            trash,
-            journal,
-            content,
-            completions,
-        ]
-    };
+    let journal_content = sqlx::migrate::Migration::new(
+        8,
+        "journal_content".into(),
+        sqlx::migrate::MigrationType::ReversibleUp,
+        include_str!("../../migrations/0008_journal_content.sql").into(),
+        false,
+    );
+    let expected: Vec<_> = [
+        initial,
+        schedule,
+        priority,
+        trash,
+        journal,
+        content,
+        completions,
+        journal_content,
+    ]
+    .into_iter()
+    .take(version as usize)
+    .collect();
     if history.len() != expected.len()
         || history.iter().zip(&expected).any(|(row, migration)| {
             row.try_get::<i64, _>("version").ok() != Some(migration.version)

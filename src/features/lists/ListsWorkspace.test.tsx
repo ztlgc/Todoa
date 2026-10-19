@@ -5,6 +5,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLocalQueryClient } from "@/app/queryClient";
 import { listRepository } from "@/data/repositories/ListRepository";
 import { contentRepository } from "@/data/repositories/ContentRepository";
+import { journalRepository } from "@/data/repositories/JournalRepository";
+import type { JSONContent } from "@tiptap/react";
+import { plainDocument, plainText } from "@/domain/contentDocument";
 import { taskRepository } from "@/data/repositories/TaskRepository";
 import type { TaskList } from "@/domain/list";
 import type { Task } from "@/domain/task";
@@ -15,7 +18,8 @@ import { listKeys } from "./queryKeys";
 vi.mock("@/data/repositories/ListRepository", () => ({ listRepository: { list: vi.fn(), create: vi.fn(), rename: vi.fn(), delete: vi.fn() } }));
 vi.mock("@/data/repositories/TaskRepository", () => ({ taskRepository: { list: vi.fn(), create: vi.fn(), updateStatus: vi.fn(), delete: vi.fn(), setList: vi.fn(), getById: vi.fn(), update: vi.fn() } }));
 vi.mock("@/data/repositories/TagRepository", () => ({ tagRepository: { list: async () => [], listTaskTags: async () => [] } }));
-vi.mock("@/data/repositories/JournalRepository", () => ({ journalRepository: { list: async () => [] } }));
+vi.mock("@/data/repositories/JournalRepository", () => ({ journalRepository: { list: async () => [], saveContent: vi.fn() } }));
+vi.mock("@/features/tasks/TaskContentEditor", async importOriginal => ({ ...await importOriginal<typeof import("@/features/tasks/TaskContentEditor")>(), ContentEditor: ({ initial, label, onChange }: { initial: JSONContent; label: string; onChange: (doc: JSONContent) => void }) => <textarea aria-label={label} defaultValue={plainText(initial)} onChange={event => onChange(plainDocument(event.target.value))} /> }));
 vi.mock("@/data/repositories/ContentRepository", () => ({ contentRepository: { save: vi.fn() }, plainDocument: (text:string)=>({ type:"doc", content:[{type:"paragraph",content:text?[{type:"text",text}]:[]}] }) }));
 const time = "2026-10-04T00:00:00.000Z";
 const list: TaskList = { id: 1, name: "工作", sortOrder: 0, createdAt: time, updatedAt: time };
@@ -76,18 +80,17 @@ it("separates task navigation from settings groups", async () => {
   await screen.findByRole("heading", { name: "收件箱" });
 });
 
-it("identifies unsaved journal edits and preserves them when navigation is cancelled", async () => {
+it("saves journal notes before navigation and stays on the journal when saving fails", async () => {
   setup();
   fireEvent.click(screen.getByRole("button", { name: "日记" }));
-  const summary = await screen.findByLabelText("记录事项");
+  vi.mocked(journalRepository.saveContent).mockRejectedValueOnce(new Error("空间不足"));
+  const summary = await screen.findByLabelText("日记补充内容");
   fireEvent.change(summary, { target: { value: "保留这份日记草稿" } });
   fireEvent.click(screen.getByRole("button", { name: "设置" }));
-  expect(await screen.findByText("当前日记尚未保存，离开后将保留本地草稿，是否切换视图？")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect((screen.getByLabelText("记录事项") as HTMLInputElement).value).toBe("保留这份日记草稿");
+  expect(await screen.findByText("空间不足")).toBeTruthy();
+  expect((screen.getByLabelText("日记补充内容") as HTMLTextAreaElement).value).toBe("保留这份日记草稿");
+  vi.mocked(journalRepository.saveContent).mockResolvedValue(1);
   fireEvent.click(screen.getByRole("button", { name: "设置" }));
-  fireEvent.click(await screen.findByRole("button", { name: "离开并保留草稿" }));
   expect(await screen.findByRole("heading", { name: "常规" })).toBeTruthy();
 });
 

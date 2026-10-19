@@ -12,3 +12,8 @@ commands.allow = ["create_journal_follow_up"]
 identifier = "main-journal-automation"
 description = "Main may reconcile available task completion snapshots into daily journals."
 commands.allow = ["reconcile_journal_tasks"]
+
+[[permission]]
+identifier = "main-journal-content"
+description = "Main may save journal content and access its own local images."
+commands.allow = ["save_journal_content", "import_journal_image", "read_journal_image"]

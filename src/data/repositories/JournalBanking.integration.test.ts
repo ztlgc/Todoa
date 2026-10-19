@@ -11,7 +11,7 @@ const date = "2026-10-17";
 const item: JournalItem = { id: "client-entry/1", title: "确认续贷资料", notes: "缺少季度报表", client: "华兴制造", business: "续贷管理", activity: "phone", status: "waiting_client", nextAction: "催收季度报表", followUpAt: "2026-10-20T01:00:00.000Z", taskId: null, completedAt: null, theme: "", important: true };
 beforeEach(() => {
   database = new DatabaseSync(":memory:");
-  for (const file of ["0001_initial.sql", "0002_natural_schedule.sql", "0003_task_priority.sql", "0004_task_trash.sql", "0005_journal.sql", "0006_task_content.sql", "0007_journal_task_completions.sql"]) database.exec(readFileSync(new URL(`../../../src-tauri/migrations/${file}`, import.meta.url), "utf8"));
+  for (const file of ["0001_initial.sql", "0002_natural_schedule.sql", "0003_task_priority.sql", "0004_task_trash.sql", "0005_journal.sql", "0006_task_content.sql", "0007_journal_task_completions.sql", "0008_journal_content.sql"]) database.exec(readFileSync(new URL(`../../../src-tauri/migrations/${file}`, import.meta.url), "utf8"));
   adapter = { select: async <T,>(sql: string, values = []) => database.prepare(sql).all(...values) as T,
     execute: async (sql, values = []) => { const result = database.prepare(sql).run(...values); return { rowsAffected: Number(result.changes), lastInsertId: Number(result.lastInsertRowid) }; } };
   journal = new JournalRepository(async () => adapter, () => false);

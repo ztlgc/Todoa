@@ -13,6 +13,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Highlight from "@tiptap/extension-highlight";
 import { contentRepository } from "@/data/repositories/ContentRepository";
+import type { ContentImageStore } from "@/domain/contentDocument";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -34,8 +35,8 @@ function LocalImage({
       object: string | undefined;
     const asset = Number(String(node.attrs.src).replace("todoa-asset:", ""));
     setFailed(false);
-    void contentRepository
-      .image(extension.options.taskId, asset)
+    void (extension.options.imageStore as ContentImageStore)
+      .image(asset)
       .then((blob) => {
         object = URL.createObjectURL(blob);
         if (active) setUrl(object);
@@ -48,7 +49,7 @@ function LocalImage({
       active = false;
       if (object) URL.revokeObjectURL(object);
     };
-  }, [node.attrs.src, extension.options.taskId, retry]);
+  }, [node.attrs.src, extension.options.imageStore, retry]);
   return (
     <NodeViewWrapper
       className={`my-3 rounded-lg ${selected ? "ring-2 ring-primary" : ""}`}
@@ -105,7 +106,7 @@ function LocalImage({
   );
 }
 const TaskImage = Image.extend<{
-  taskId: number;
+  imageStore: ContentImageStore;
   allowBase64: boolean;
   inline: boolean;
   HTMLAttributes: Record<string, unknown>;
@@ -113,7 +114,7 @@ const TaskImage = Image.extend<{
   addOptions() {
     return {
       ...this.parent?.(),
-      taskId: 0,
+      imageStore: null!,
       allowBase64: false,
       inline: false,
       HTMLAttributes: {},
@@ -127,8 +128,10 @@ const TaskImage = Image.extend<{
   },
 });
 
-export function TaskContentEditor({
-  id,
+export function ContentEditor({
+  imageStore,
+  label = "任务内容",
+  editable = true,
   initial,
   onChange,
   onComposition,
@@ -137,7 +140,9 @@ export function TaskContentEditor({
   showTools,
   onToolsClosed,
 }: {
-  id: number;
+  imageStore: ContentImageStore;
+  label?: string;
+  editable?: boolean;
   initial: JSONContent;
   onChange: (doc: JSONContent) => void;
   onComposition: (value: boolean) => void;
@@ -174,9 +179,10 @@ export function TaskContentEditor({
         link: { openOnClick: false, protocols: ["http", "https", "mailto"] },
       }),
       Highlight,
-      TaskImage.configure({ taskId: id }),
+      TaskImage.configure({ imageStore }),
     ],
     content: initial,
+    editable,
     editorProps: {
       handleKeyDown: (_view, event) => {
         if (event.key === "Escape" && toolbarOpen.current) {
@@ -190,7 +196,7 @@ export function TaskContentEditor({
       attributes: {
         class: "task-content min-h-64 outline-none text-[15px] leading-7",
         role: "textbox",
-        "aria-label": "任务内容",
+        "aria-label": label,
         "aria-multiline": "true",
       },
       handlePaste: (_view, event) => {
@@ -222,6 +228,7 @@ export function TaskContentEditor({
   useEffect(() => {
     if (editor) callbacks.current.onEditor(editor);
   }, [editor]);
+  useEffect(() => { editor?.setEditable(editable, false); }, [editor, editable]);
   const selectionAnchor = useMemo(
     () =>
       editor
@@ -250,13 +257,13 @@ export function TaskContentEditor({
     [editor, renderRevision],
   );
   async function insert(files: File[]) {
-    if (!editor || importing) return;
+    if (!editor || importing || !editor.isEditable) return;
     setImporting(true);
     callbacks.current.onBusy(true);
     setError(undefined);
     try {
       for (const f of files) {
-        const asset = await contentRepository.importImage(id, f);
+        const asset = await imageStore.importImage(f);
         if (!editor.isDestroyed)
           editor
             .chain()
@@ -325,7 +332,7 @@ export function TaskContentEditor({
       onCompositionEnd={() => callbacks.current.onComposition(false)}
     >
       <Popover.Root
-        open={linkHref === null && (showTools || selected)}
+        open={editable && linkHref === null && (showTools || selected)}
         onOpenChange={(open) => {
           if (!open) {
             setSelected(false);
@@ -423,7 +430,7 @@ export function TaskContentEditor({
         accept="image/png,image/jpeg,image/webp"
         multiple
         className="hidden"
-        aria-label="选择任务图片"
+        aria-label={label === "任务内容" ? "选择任务图片" : "选择日记图片"}
         onChange={(e) => void insert(Array.from(e.target.files ?? []))}
       />
       {error && (
@@ -433,4 +440,9 @@ export function TaskContentEditor({
       )}
     </div>
   );
+}
+
+export function TaskContentEditor({ id, ...props }: Omit<Parameters<typeof ContentEditor>[0], "imageStore" | "label" | "editable"> & { id: number }) {
+  const imageStore = useMemo<ContentImageStore>(() => ({ importImage: file => contentRepository.importImage(id, file), image: asset => contentRepository.image(id, asset) }), [id]);
+  return <ContentEditor {...props} imageStore={imageStore} />;
 }

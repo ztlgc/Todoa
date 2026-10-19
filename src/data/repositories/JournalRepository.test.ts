@@ -2,6 +2,20 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { emptyJournal } from "@/domain/journal";
 import { JournalRepository, JOURNAL_STORAGE_KEY, WORK_JOURNAL_TEST_STORAGE_KEY } from "./JournalRepository";
+import { plainDocument } from "@/domain/contentDocument";
+
+it("saves rich content independently, rejects stale edits and preserves it through trash restoration", async () => {
+  await repo().save(input, 0);
+  const doc = plainDocument("完整补充内容");
+  expect(await repo().saveContent("day", input.start, doc, 0)).toBe(1);
+  const saved = (await repo().list())[0];
+  expect(saved.items).toEqual(input.items); expect(saved.contentJson).toBe(JSON.stringify(doc));
+  await expect(repo().saveContent("day", input.start, plainDocument("过期内容"), 0)).rejects.toThrow("其他窗口");
+  await repo().remove(saved);
+  await expect(repo().saveContent("day", input.start, doc, 1)).rejects.toThrow("回收站");
+  const removed = (await repo().list())[0]; await repo().save(removed, removed.revision);
+  expect((await repo().list())[0].contentJson).toBe(JSON.stringify(doc));
+});
 
 const input = { ...emptyJournal("day", "2026-10-07"), text: "每日成果", items: [{ id: "snapshot", title: "原始任务标题", notes: "完成联调", taskId: 1, completedAt: "2026-10-07T02:00:00.000Z", theme: "项目A", important: true }] };
 const repo = () => new JournalRepository(undefined, () => true, () => localStorage);

@@ -3,30 +3,12 @@ import { isBrowserDebug } from "@/app/browserDebug";
 import { browserTaskRepository } from "@/data/browserRepositories";
 import { parseTaskNotes, parseTaskTitle } from "@/domain/task";
 import type { JSONContent } from "@tiptap/react";
-import { subtaskText } from "@/domain/subtask";
+import { plainText } from "@/domain/contentDocument";
+import { validateImageFile } from "@/data/imageFiles";
+export { plainDocument, plainText } from "@/domain/contentDocument";
 
 const images = new Map<number, { blob: Blob; tasks: Set<number> }>();
 let sequence = 0;
-export function plainDocument(text: string): JSONContent {
-  return {
-    type: "doc",
-    content: text
-      .split("\n")
-      .map((line) => ({
-        type: "paragraph",
-        ...(line ? { content: [{ type: "text", text: line }] } : {}),
-      })),
-  };
-}
-export function plainText(doc: JSONContent): string {
-  const visit = (n: JSONContent): string =>
-    (n.text ?? "") +
-    (n.content?.map(visit).join("") ?? "") +
-    (["paragraph", "heading", "hardBreak", "listItem"].includes(n.type ?? "")
-      ? "\n"
-      : "");
-  return [subtaskText(doc), visit(doc).trimEnd()].filter(Boolean).join("\n");
-}
 export const contentRepository = {
   async save(id: number, title: string, doc: JSONContent, revision: number) {
     const json = JSON.stringify(doc);
@@ -44,15 +26,7 @@ export const contentRepository = {
     return revision + 1;
   },
   async importImage(id: number, file: File): Promise<number> {
-    if (
-      !["image/png", "image/jpeg", "image/webp"].includes(file.type) ||
-      file.size > 10 * 1024 * 1024
-    )
-      throw new Error("请选择不超过 10MB 的 PNG、JPEG 或 WebP 图片。");
-    const bitmap = await createImageBitmap(file);
-    const tooLarge = bitmap.width * bitmap.height > 40_000_000;
-    bitmap.close();
-    if (tooLarge) throw new Error("图片尺寸过大，请缩小后再插入。");
+    await validateImageFile(file);
     if (isBrowserDebug()) {
       const asset = ++sequence;
       images.set(asset, { blob: file, tasks: new Set([id]) });

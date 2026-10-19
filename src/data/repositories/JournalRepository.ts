@@ -6,6 +6,9 @@ import { dateKey, emptyJournal, parseJournalInput, type JournalInput, type Journ
 import { completionSnapshot, handwrittenJournal, mergeJournalCompletions, parseJournalCompletion, type JournalCompletion } from "@/domain/journalAutomation";
 import type { Task, TaskStatus } from "@/domain/task";
 import type { TaskList } from "@/domain/list";
+import type { JSONContent } from "@tiptap/react";
+import { parseJournalDocument } from "@/domain/journalContent";
+import { readBrowserJournalImage } from "@/data/browserJournalImages";
 
 export const JOURNAL_STORAGE_KEY = "todoa.journal.v1";
 export const WORK_JOURNAL_TEST_STORAGE_KEY = "todoa.journal.real-work-test.v1";
@@ -14,7 +17,7 @@ export class JournalConflictError extends Error {
   constructor() { super("这份记录已在其他窗口更新，请重新打开后编辑。当前输入已保留。"); this.name = "JournalConflictError"; }
 }
 const conflict = () => new JournalConflictError();
-type Row = { kind: string; period_start: string; period_end: string; title: string; body: string; theme: string; important: number; items_json: string; revision: number; created_at: string; updated_at: string; deleted_at: string | null };
+type Row = { kind: string; period_start: string; period_end: string; title: string; body: string; theme: string; important: number; items_json: string; revision: number; created_at: string; updated_at: string; deleted_at: string | null; content_json?: string | null; content_revision?: number };
 type CompletionRow = { id: string; day: string; task_id: number; task_created_at: string; completed_at: string; title: string; notes: string; theme: string; important: number; revoked_at: string | null; revoked_day: string | null };
 function mapCompletion(row: CompletionRow): JournalCompletion {
   return parseJournalCompletion({ day: row.day, revokedDay: row.revoked_day, item: {
@@ -24,8 +27,9 @@ function mapCompletion(row: CompletionRow): JournalCompletion {
   } });
 }
 function mapRow(row: Row): JournalRecord {
+  if (row.content_json) parseJournalDocument(row.content_json);
   const input = parseJournalInput({ kind: row.kind as JournalInput["kind"], start: row.period_start, end: row.period_end, title: row.title, text: row.body, theme: row.theme, important: row.important === 1, items: JSON.parse(row.items_json) });
-  return { ...input, revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at, deletedAt: row.deleted_at };
+  return { ...input, revision: row.revision, createdAt: row.created_at, updatedAt: row.updated_at, deletedAt: row.deleted_at, contentJson: row.content_json, contentRevision: row.content_revision ?? 0 };
 }
 export class JournalRepository {
   constructor(private database: () => Promise<SqlDatabase> = initDatabase, private browser = isBrowserDebug, private storage: () => Storage = () => localStorage, private storageKey = JOURNAL_STORAGE_KEY) {}
@@ -80,6 +84,7 @@ export class JournalRepository {
     if (!Array.isArray(records)) throw new Error("日记存储格式无效。");
     return records.map(record => {
       if (!Number.isInteger(record.revision) || record.revision < 1) throw new Error("日记版本无效。");
+      if (record.contentJson) parseJournalDocument(record.contentJson);
       return { ...record, ...parseJournalInput(record) };
     });
   }
@@ -97,7 +102,7 @@ export class JournalRepository {
     if (this.browser()) {
       const records = this.read(), existing = records.find(record => record.kind === parsed.kind && record.start === parsed.start);
       if ((existing?.revision ?? 0) !== revision) throw conflict();
-      const next: JournalRecord = { ...parsed, revision: revision + 1, createdAt: existing?.createdAt ?? now, updatedAt: now, deletedAt: null };
+      const next: JournalRecord = { ...existing, ...parsed, revision: revision + 1, createdAt: existing?.createdAt ?? now, updatedAt: now, deletedAt: null };
       this.storage().setItem(this.storageKey, JSON.stringify([...records.filter(record => record !== existing), next]));
       return;
     }
@@ -106,6 +111,21 @@ export class JournalRepository {
       ? await db.execute("UPDATE journal_records SET period_end=?,title=?,body=?,theme=?,important=?,items_json=?,revision=revision+1,updated_at=?,deleted_at=NULL WHERE kind=? AND period_start=? AND revision=?", [parsed.end, parsed.title, parsed.text, parsed.theme, parsed.important ? 1 : 0, JSON.stringify(parsed.items), now, parsed.kind, parsed.start, revision])
       : await db.execute(`INSERT INTO journal_records (kind,period_start,period_end,title,body,theme,important,items_json,revision,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,1,?,?) ON CONFLICT(kind,period_start) DO NOTHING`, [parsed.kind, parsed.start, parsed.end, parsed.title, parsed.text, parsed.theme, parsed.important ? 1 : 0, JSON.stringify(parsed.items), now, now]);
     if (result.rowsAffected !== 1) throw conflict();
+  }
+  async saveContent(kind: JournalInput["kind"], start: string, doc: JSONContent, revision: number): Promise<number> {
+    const parsed = parseJournalDocument(doc), input = emptyJournal(kind, start);
+    if (input.start !== start || !Number.isSafeInteger(revision) || revision < 0) throw new Error("日记日期或版本无效。");
+    if (!this.browser()) {
+      try { return await invoke<number>("save_journal_content", { kind, start, json: parsed.json, revision }); }
+      catch (cause) { if (String(cause).includes("JOURNAL_CONTENT_CONFLICT")) throw conflict(); throw Object.assign(new Error(String(cause).includes("JOURNAL_IN_TRASH") ? "日记已在回收站，请先恢复。" : "补充内容保存失败，输入已保留。请重试。"), { cause }); }
+    }
+    for (const asset of parsed.assets) await readBrowserJournalImage(this.draftNamespace, kind, start, asset);
+    const records = this.read(), existing = records.find(record => record.kind === kind && record.start === start);
+    if (existing?.deletedAt) throw new Error("日记已在回收站，请先恢复。");
+    if ((existing?.contentRevision ?? 0) !== revision) throw conflict();
+    const now = new Date().toISOString(), next: JournalRecord = { ...input, ...existing, text: parsed.text, contentJson: parsed.json, contentRevision: revision + 1, revision: (existing?.revision ?? 0) + 1, createdAt: existing?.createdAt ?? now, updatedAt: now, deletedAt: null };
+    this.storage().setItem(this.storageKey, JSON.stringify([...records.filter(record => record !== existing), next]));
+    return revision + 1;
   }
   async append(date: string, item: JournalInput["items"][number]): Promise<void> {
     // Re-read before appending, so quick entry never replaces the rest of a day.

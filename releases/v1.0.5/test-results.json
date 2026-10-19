@@ -1,0 +1,17 @@
+{
+  "version": "1.0.5",
+  "release_date": "2026-10-19",
+  "typescript": "passed",
+  "eslint": "passed",
+  "dependency_lock_validation": "passed",
+  "frontend": {
+    "files_covered": 43,
+    "tests_passed": 289,
+    "initial_run": { "files_passed": 42, "tests_passed": 279, "worker_start_timeout": "src/features/lists/ListsWorkspace.test.tsx" },
+    "retry": { "file": "src/features/lists/ListsWorkspace.test.tsx", "tests_passed": 10, "errors": 0 }
+  },
+  "rust": { "target": "x86_64-pc-windows-msvc", "tests_passed": 57, "failures": 0, "locked": true, "format_check": "passed" },
+  "production_browser": { "daily_scenarios_passed": 11, "period_scenarios_passed": 8, "page_errors": 0 },
+  "database_schema": 8,
+  "installed_app_gui_tested": false
+}
