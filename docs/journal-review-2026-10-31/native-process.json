@@ -1,0 +1,8 @@
+﻿{
+    "port":  19331,
+    "pid":  33072,
+    "webviewProfile":  "C:\\Users\\Heart\\AppData\\Local\\com.todoa.desktop.test.review20261031\\native-gui-webview",
+    "identifier":  "com.todoa.desktop.test.review20261031",
+    "startedAt":  "2026-10-31T17:54:25.2396594+08:00",
+    "executable":  "E:\\2025Code\\Todoa\\src-tauri\\target\\debug\\todoa.exe"
+}

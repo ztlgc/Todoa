@@ -28,6 +28,32 @@ fn rich_journal_and_local_images_round_trip_through_backup() {
         crate::services::journal_content::save(&pool, "day", "2026-10-18", &doc, 0)
             .await
             .unwrap();
+        crate::services::journal_review::save(
+            &pool,
+            crate::services::journal_review::HighlightInput {
+                id: "backup-highlight".into(),
+                date: "2026-10-18".into(),
+                summary: "重点快照".into(),
+                result: "成果".into(),
+                theme: "主题".into(),
+                source_type: "note".into(),
+                source_id: "backup-highlight".into(),
+                source_revision: 1,
+            },
+            0,
+        )
+        .await
+        .unwrap();
+        crate::services::journal_review::add_material(
+            &pool,
+            "month",
+            "2026-10-01",
+            "highlight",
+            "backup-highlight",
+            0,
+        )
+        .await
+        .unwrap();
         let target = source.path().join("journal-content.db");
         backup(&pool, source.path(), &target, false).await.unwrap();
         validate(&target).await.unwrap();
@@ -54,6 +80,23 @@ fn rich_journal_and_local_images_round_trip_through_backup() {
                 .1,
             image
         );
+        let highlights =
+            crate::services::journal_review::list(&read, "2026-10-01", "2026-10-31", false)
+                .await
+                .unwrap();
+        assert_eq!(highlights.len(), 1);
+        assert_eq!(highlights[0].input.summary, "重点快照");
+        let materials = crate::services::journal_review::materials(&read, "month", "2026-10-01")
+            .await
+            .unwrap();
+        assert_eq!(materials.len(), 1);
+        assert!(materials[0].snapshot.contains("成果"));
+        let review: String =
+            sqlx::query_scalar("SELECT body FROM journal_records WHERE kind='month'")
+                .fetch_one(&read)
+                .await
+                .unwrap();
+        assert!(review.contains("重点快照"));
         read.close().await;
         pool.close().await;
     });
@@ -64,7 +107,7 @@ fn schema_seven_backup_upgrades_without_changing_journals_or_completion_snapshot
     tauri::async_runtime::block_on(async {
         let root = TempDir::new().unwrap();
         let pool = database(root.path(), "task").await;
-        sqlx::raw_sql("DROP TABLE journal_assets; ALTER TABLE journal_records DROP COLUMN content_json; ALTER TABLE journal_records DROP COLUMN content_revision; DELETE FROM _sqlx_migrations WHERE version=8; PRAGMA user_version=7;").execute(&pool).await.unwrap();
+        sqlx::raw_sql("DROP TABLE journal_review_sources; DROP TABLE journal_highlights; DELETE FROM _sqlx_migrations WHERE version=9; DROP TABLE journal_assets; ALTER TABLE journal_records DROP COLUMN content_json; ALTER TABLE journal_records DROP COLUMN content_revision; DELETE FROM _sqlx_migrations WHERE version=8; PRAGMA user_version=7;").execute(&pool).await.unwrap();
         crate::services::reminders::update_status(&pool, 1, "completed", 1791104523004)
             .await
             .unwrap();
@@ -108,7 +151,7 @@ fn schema_six_backup_remains_accepted_before_automatic_journal_migration() {
         let source = TempDir::new().unwrap();
         let pool = database(source.path(), "Schema six task").await;
         // Recreate the exact previous schema/history, with its handwritten data.
-        sqlx::raw_sql("DROP TABLE journal_assets; ALTER TABLE journal_records DROP COLUMN content_json; ALTER TABLE journal_records DROP COLUMN content_revision; DROP TABLE journal_task_completions; DELETE FROM _sqlx_migrations WHERE version>=7; PRAGMA user_version=6;")
+        sqlx::raw_sql("DROP TABLE journal_review_sources; DROP TABLE journal_highlights; DELETE FROM _sqlx_migrations WHERE version=9; DROP TABLE journal_assets; ALTER TABLE journal_records DROP COLUMN content_json; ALTER TABLE journal_records DROP COLUMN content_revision; DROP TABLE journal_task_completions; DELETE FROM _sqlx_migrations WHERE version>=7; PRAGMA user_version=6;")
             .execute(&pool).await.unwrap();
         let target = source.path().join("schema-six-backup.db");
         backup(&pool, source.path(), &target, false).await.unwrap();
@@ -314,6 +357,13 @@ async fn database(root: &Path, title: &str) -> SqlitePool {
                 "journal_content".into(),
                 MigrationType::ReversibleUp,
                 include_str!("../../../migrations/0008_journal_content.sql").into(),
+                false,
+            ),
+            Migration::new(
+                9,
+                "journal_review".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0009_journal_review.sql").into(),
                 false,
             ),
         ]),

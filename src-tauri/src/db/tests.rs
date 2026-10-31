@@ -82,6 +82,13 @@ fn current_migrator() -> Migrator {
                 include_str!("../../migrations/0008_journal_content.sql").into(),
                 false,
             ),
+            SqlxMigration::new(
+                9,
+                "journal_review".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0009_journal_review.sql").into(),
+                false,
+            ),
         ]),
         ..Migrator::DEFAULT
     }

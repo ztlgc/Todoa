@@ -1,0 +1,4 @@
+- heading "日记图片生命周期验证" [level=1]
+- paragraph: 仅允许在本次隔离预览端口 1436 使用；样本为虚构数据，不连接桌面数据库。
+- button "运行图片生命周期验证" [disabled]
+- generic: "全部通过 [ { \"name\": \"真实浏览器提供跨标签页互斥\", \"passed\": true }, { \"name\": \"两个编辑器打开时跳过回收\", \"passed\": true }, { \"name\": \"撤销历史中仍可读取已移除图片\", \"passed\": true }, { \"name\": \"另一编辑器仍打开时保留资源\", \"passed\": true }, { \"name\": \"所有编辑器关闭后回收孤立图片\", \"passed\": true }, { \"name\": \"保留已保存正文图片\", \"passed\": true }, { \"name\": \"保留回收站图片\", \"passed\": true }, { \"name\": \"保留未提交草稿图片\", \"passed\": true }, { \"name\": \"舍弃草稿后回收其孤立图片\", \"passed\": true }, { \"name\": \"坏草稿使清理安全中止\", \"passed\": true }, { \"name\": \"故障解除后可继续回收\", \"passed\": true } ]"

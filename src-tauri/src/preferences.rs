@@ -90,7 +90,6 @@ mod tests {
                 journal_enabled: false,
                 notifications_enabled: false,
                 show_task_title: false,
-                ..Preferences::default()
             };
             state.save(&pool, input.clone()).await.unwrap();
             assert_eq!(

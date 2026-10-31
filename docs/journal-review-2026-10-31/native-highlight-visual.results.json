@@ -1,0 +1,22 @@
+{
+  "databasePath": "C:\\Users\\Heart\\AppData\\Roaming\\com.todoa.desktop.test.review20261031\\todo.db",
+  "records": [
+    {
+      "name": "打开修复版每日",
+      "passed": true,
+      "at": "2026-10-31T09:56:45.143Z"
+    },
+    {
+      "step": "滚动到本日重点",
+      "value": {
+        "interrupted": false
+      }
+    },
+    {
+      "name": "滚动到本日重点",
+      "passed": true,
+      "at": "2026-10-31T09:56:45.286Z"
+    }
+  ],
+  "events": []
+}

@@ -36,3 +36,21 @@ export async function readBrowserJournalImage(namespace: string, kind: JournalKi
     request.onerror = () => reject(new Error("日记图片读取失败，请重试。"));
   });
 }
+
+// Caller holds the exclusive image-maintenance lock and has collected saved,
+// trashed and draft references. A single IDB transaction makes deletion atomic.
+export async function pruneBrowserJournalImages(namespace: string, keep: ReadonlySet<number>): Promise<number> {
+  const db = await database(namespace);
+  return new Promise((resolve, reject) => {
+    let removed = 0;
+    const tx = db.transaction("images", "readwrite"), request = tx.objectStore("images").openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      if (!keep.has(Number(cursor.primaryKey))) { cursor.delete(); removed++; }
+      cursor.continue();
+    };
+    tx.oncomplete = () => resolve(removed);
+    tx.onerror = tx.onabort = () => reject(new Error("日记图片清理失败，稍后重试。"));
+  });
+}

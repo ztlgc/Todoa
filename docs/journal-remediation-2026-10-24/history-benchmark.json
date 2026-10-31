@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-25",
+  "scope": "SQLite in memory, actual repository mapping and domain search; no Tauri IPC, GUI rendering or image decoding; heap delta is not peak memory",
+  "results": [
+    {
+      "days": 365,
+      "completionSnapshots": 3650,
+      "databaseBytes": 10489856,
+      "listMilliseconds": [
+        202.9,
+        199.06,
+        183.27
+      ],
+      "searchMilliseconds": 34.41,
+      "matches": 92,
+      "rangeMilliseconds": 0.38,
+      "rangeDays": 297,
+      "heapDeltaMiB": 37.25
+    },
+    {
+      "days": 1826,
+      "completionSnapshots": 18260,
+      "databaseBytes": 57593856,
+      "listMilliseconds": [
+        843.41,
+        736.05,
+        738.91
+      ],
+      "searchMilliseconds": 86.66,
+      "matches": 457,
+      "rangeMilliseconds": 0.83,
+      "rangeDays": 297,
+      "heapDeltaMiB": 146.28
+    }
+  ]
+}

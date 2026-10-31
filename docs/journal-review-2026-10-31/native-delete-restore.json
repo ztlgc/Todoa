@@ -1,0 +1,7 @@
+[
+ {"name":"记录原生布局尺寸","eval":"({viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},boxes:['.daily-layout','.daily-page','.review-composition','.daily-note','.review-materials-side'].map(s=>{const e=document.querySelector(s),r=e.getBoundingClientRect(),c=getComputedStyle(e);return {selector:s,x:r.x,y:r.y,width:r.width,height:r.height,display:c.display,gridTemplateColumns:c.gridTemplateColumns}})})"},
+ {"name":"回到每日","text":"每日","wait":"document.querySelector('.review-highlight-list')?.innerText.includes('原生验收重点')"},
+ {"name":"打开更多菜单","click":"button[aria-label=\"日记更多操作\"]"},
+ {"name":"请求移入回收站","text":"移入回收站","wait":"!!document.querySelector('[role=\"alertdialog\"]') || !!document.querySelector('[role=\"dialog\"]')","shot":"native-08-delete-confirm.png"},
+ {"name":"记录删除确认对话框","eval":"[...document.querySelectorAll('[role=\"alertdialog\"], [role=\"dialog\"]')].map(e=>({text:e.innerText,html:e.outerHTML}))"}
+]

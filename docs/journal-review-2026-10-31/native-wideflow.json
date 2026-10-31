@@ -1,0 +1,8 @@
+[
+ {"name":"新产物重启后打开日记","text":"日记","wait":"!!document.querySelector('[contenteditable=\"true\"]')"},
+ {"name":"重启后验证每日正文与重点持久化","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生GUI验收 20261031') && document.querySelector('.review-highlight-list')?.innerText.includes('原生验收重点')","shot":"native-16-restart-day.png"},
+ {"name":"打开修复后月度回顾","text":"月度回顾","wait":"!!document.querySelector('.review-material-item button[aria-label^=\"已加入回顾\"]') && document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生验收重点')"},
+ {"name":"测量修复后月度布局","eval":"({viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},layout:getComputedStyle(document.querySelector('.daily-layout')).display,pageWidth:document.querySelector('.daily-page').getBoundingClientRect().width,composition:getComputedStyle(document.querySelector('.review-composition')).gridTemplateColumns,noteWidth:document.querySelector('.daily-note').getBoundingClientRect().width})","shot":"native-17-fixed-month.png"},
+ {"name":"打开修复后年度回顾","text":"年度回顾","wait":"!!document.querySelector('button[aria-label=\"已加入2026-10月度回顾\"]') && document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生验收重点')"},
+ {"name":"测量修复后年度布局","eval":"({viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},layout:getComputedStyle(document.querySelector('.daily-layout')).display,pageWidth:document.querySelector('.daily-page').getBoundingClientRect().width,composition:getComputedStyle(document.querySelector('.review-composition')).gridTemplateColumns,noteWidth:document.querySelector('.daily-note').getBoundingClientRect().width})","shot":"native-18-fixed-year.png"}
+]

@@ -37,14 +37,14 @@ export function JournalContentPreview({ record }: { record: JournalRecord }) {
       case "text": {
         let content: ReactNode = node.text ?? "";
         for (const [index, mark] of (node.marks ?? []).entries()) {
-          const props = { key: `${key}-mark-${index}` };
-          if (mark.type === "bold") content = <strong {...props}>{content}</strong>;
-          if (mark.type === "italic") content = <em {...props}>{content}</em>;
-          if (mark.type === "underline") content = <u {...props}>{content}</u>;
-          if (mark.type === "strike") content = <s {...props}>{content}</s>;
-          if (mark.type === "highlight") content = <mark {...props}>{content}</mark>;
-          if (mark.type === "code") content = <code {...props}>{content}</code>;
-          if (mark.type === "link") content = <a {...props} href={String(mark.attrs?.href)} target="_blank" rel="noopener noreferrer">{content}</a>;
+          const markKey = `${key}-mark-${index}`;
+          if (mark.type === "bold") content = <strong key={markKey}>{content}</strong>;
+          if (mark.type === "italic") content = <em key={markKey}>{content}</em>;
+          if (mark.type === "underline") content = <u key={markKey}>{content}</u>;
+          if (mark.type === "strike") content = <s key={markKey}>{content}</s>;
+          if (mark.type === "highlight") content = <mark key={markKey}>{content}</mark>;
+          if (mark.type === "code") content = <code key={markKey}>{content}</code>;
+          if (mark.type === "link") content = <a key={markKey} href={String(mark.attrs?.href)} target="_blank" rel="noopener noreferrer">{content}</a>;
         }
         return <Fragment key={key}>{content}</Fragment>;
       }

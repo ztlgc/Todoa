@@ -601,7 +601,7 @@ mod tests {
                 .fetch_one(&pool)
                 .await
                 .unwrap();
-            assert!(next.1 > "2026-10-05T07:00:00.000Z".to_string());
+            assert!(next.1.as_str() > "2026-10-05T07:00:00.000Z");
             let next_priority: String = sqlx::query_scalar("SELECT priority FROM tasks WHERE id=?")
                 .bind(next.0)
                 .fetch_one(&pool)

@@ -1,0 +1,56 @@
+{
+  "databasePath": "C:\\Users\\Heart\\AppData\\Roaming\\com.todoa.desktop.test.review20261031\\todo.db",
+  "records": [
+    {
+      "name": "修复版打开每日并确认数据",
+      "passed": true,
+      "at": "2026-10-31T09:56:05.980Z"
+    },
+    {
+      "name": "打开更多菜单",
+      "passed": true,
+      "at": "2026-10-31T09:56:05.992Z"
+    },
+    {
+      "name": "请求移入回收站",
+      "passed": true,
+      "at": "2026-10-31T09:56:06.036Z"
+    },
+    {
+      "name": "确认删除",
+      "passed": true,
+      "at": "2026-10-31T09:56:06.443Z"
+    },
+    {
+      "name": "月度摘录保留来源状态",
+      "passed": true,
+      "at": "2026-10-31T09:56:06.739Z"
+    },
+    {
+      "name": "打开回收站菜单",
+      "passed": true,
+      "at": "2026-10-31T09:56:06.759Z"
+    },
+    {
+      "name": "打开日记回收站",
+      "passed": true,
+      "at": "2026-10-31T09:56:06.946Z"
+    },
+    {
+      "name": "恢复日记",
+      "passed": true,
+      "at": "2026-10-31T09:56:07.224Z"
+    },
+    {
+      "name": "恢复后每日正文和重点可见",
+      "passed": true,
+      "at": "2026-10-31T09:56:07.515Z"
+    },
+    {
+      "name": "恢复后月度来源状态清除",
+      "passed": true,
+      "at": "2026-10-31T09:56:07.815Z"
+    }
+  ],
+  "events": []
+}

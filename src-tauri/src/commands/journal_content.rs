@@ -51,3 +51,14 @@ pub async fn read_journal_image(
     let pool = pool(&window).await?;
     journal_content::read_image(&pool, &kind, &start, asset).await
 }
+
+#[tauri::command]
+pub async fn prune_journal_images(
+    window: WebviewWindow,
+    lifecycle: State<'_, Lifecycle>,
+    protected_assets: Vec<i64>,
+) -> Result<u64, &'static str> {
+    let pool = pool(&window).await?;
+    let _lease = lifecycle.write()?;
+    journal_content::prune_images(&pool, protected_assets).await
+}

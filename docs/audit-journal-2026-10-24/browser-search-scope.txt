@@ -1,0 +1,110 @@
+- main:
+  - paragraph: Todoa
+  - paragraph: 对公客户经理的客户跟进与工作安排。
+  - status: 浏览器调试 · 临时数据
+  - button "快速添加"
+  - navigation "一级导航":
+    - button "任务":
+      - text: 任务
+    - button "日历":
+      - text: 日历
+    - button "日记":
+      - text: 日记
+    - button "设置":
+      - text: 设置
+  - region "日记":
+    - paragraph: 每日一页 · 工作日记
+    - heading "日记" [level=1]
+    - button "历史" [expanded]:
+      - text: 历史
+    - button "日记更多操作":
+    - region "日记月历":
+      - strong: 客户工作日记
+      - generic: 对公客户经理工作台
+      - heading "2026年 10月" [level=2]
+      - button "日历上个月":
+      - button "日历回到今天": 今天
+      - button "日历下个月":
+      - generic: 一
+      - generic: 二
+      - generic: 三
+      - generic: 四
+      - generic: 五
+      - generic: 六
+      - generic: 日
+      - button "查看2026-10-01日记": "1"
+      - button "查看2026-10-02日记": "2"
+      - button "查看2026-10-03日记": "3"
+      - button "查看2026-10-04日记": "4"
+      - button "查看2026-10-05日记": "5"
+      - button "查看2026-10-06日记": "6"
+      - button "查看2026-10-07日记": "7"
+      - button "查看2026-10-08日记": "8"
+      - button "查看2026-10-09日记": "9"
+      - button "查看2026-10-10日记": "10"
+      - button "查看2026-10-11日记": "11"
+      - button "查看2026-10-12日记": "12"
+      - button "查看2026-10-13日记": "13"
+      - button "查看2026-10-14日记": "14"
+      - button "查看2026-10-15日记": "15"
+      - button "查看2026-10-16日记": "16"
+      - button "查看2026-10-17日记": "17"
+      - button "查看2026-10-18日记": "18"
+      - button "查看2026-10-19日记": "19"
+      - button "查看2026-10-20日记": "20"
+      - button "查看2026-10-21日记": "21"
+      - button "查看2026-10-22日记": "22"
+      - button "查看2026-10-23日记": "23"
+      - button "查看2026-10-24日记" [pressed]: "24"
+      - button "查看2026-10-25日记" [disabled]: "25"
+      - button "查看2026-10-26日记" [disabled]: "26"
+      - button "查看2026-10-27日记" [disabled]: "27"
+      - button "查看2026-10-28日记" [disabled]: "28"
+      - button "查看2026-10-29日记" [disabled]: "29"
+      - button "查看2026-10-30日记" [disabled]: "30"
+      - button "查看2026-10-31日记" [disabled]: "31"
+    - group "日记显示范围":
+      - button "日"
+      - button "周"
+      - button "月" [pressed]
+      - button "年"
+    - complementary "日记历史":
+      - heading "历史日记" [level=2]
+      - button "收起历史日记":
+      - textbox "搜索日记" [active]:
+        - /placeholder: 搜索日期、任务或补充
+        - text: 青禾
+      - button "2026-10-24 日记 · 1 项完成":
+        - strong: 2026-10-24
+        - generic: 日记 · 1 项完成
+    - article:
+      - heading "月日记" [level=2]
+      - paragraph: 2026-10-01 — 2026-10-31
+      - navigation "日记日期":
+        - button "上个月":
+        - generic "选择日期":
+          - textbox "选择日记日期": 2026-10-24
+        - button "下个月" [disabled]:
+        - button "本月" [disabled]
+      - region "时间范围内的日记":
+        - article "2026-10-24日记":
+          - heading "2026年10月24日星期六" [level=2]
+          - button "打开2026-10-24日记": 打开日记
+          - region "当天完成 1":
+            - heading "当天完成 1" [level=2]
+            - generic: 自动记录
+            - list:
+              - generic "审计样本：青禾公司材料回收 23:05":
+                - generic: 审计样本：青禾公司材料回收
+                - time: 23:05
+          - heading "工作补充" [level=3]
+          - paragraph: 审计样本：青禾公司回访，财务已确认材料，下一步周一核对缺项。
+        - article "2026-10-23日记":
+          - heading "2026年10月23日星期五" [level=2]
+          - button "打开2026-10-23日记": 打开日记
+          - region "当天完成 0":
+            - heading "当天完成 0" [level=2]
+            - generic: 自动记录
+            - paragraph: 当天暂无完成任务，完成后会自动出现在这里。
+          - heading "工作补充" [level=3]
+          - paragraph: 审计样本：云杉公司资料核对，等待补交发票。

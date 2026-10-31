@@ -1,4 +1,5 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+import type { JSONContent } from "@tiptap/react";
 import { emptyJournal, type JournalRecord } from "./journal";
 import { plainDocument } from "./contentDocument";
 import { documentMarkdown, journalDocument, parseJournalDocument } from "./journalContent";
@@ -23,4 +24,30 @@ it("validates notes and exports formatting, links, lists and owned images", asyn
   expect(output).toContain("**重点**"); expect(output).toContain("[官网](https://example.com/)"); expect(output).toContain("- 下次回访"); expect(output).toContain("data:image/png;base64,test");
   expect(() => parseJournalDocument({ type: "doc", content: [{ type: "image", attrs: { src: "https://external/image.png" } }] })).toThrow();
   expect(() => parseJournalDocument({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "bad", marks: [{ type: "link", attrs: { href: "javascript:bad()" } }] }] }] })).toThrow();
+});
+
+it.each([1, 4, 8])("exports nested lists at depth %s with one image read and correct indentation", async depth => {
+  let node: JSONContent = { type: "image", attrs: { src: "todoa-asset:12" } };
+  for (let index = 0; index < depth; index++) node = { type: "bulletList", content: [{ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: `层${index}` }] }, node] }] };
+  const read = vi.fn(async () => "data:image/png;base64,test");
+  const result = await documentMarkdown({ type: "doc", content: [node] }, read);
+  expect(read).toHaveBeenCalledExactlyOnceWith(12);
+  expect(result.match(/data:image/g)).toHaveLength(1);
+  expect(result).toContain(" ".repeat(depth * 2) + "![");
+});
+
+it("shares one image read across repeated nodes and indents multi-digit ordered lists", async () => {
+  const image = { type: "image", attrs: { src: "todoa-asset:12" } };
+  const read = vi.fn(async () => "data:image/png;base64,test");
+  const doc = { type: "doc", content: [{ type: "orderedList", attrs: { start: 10 }, content: [{ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "正文" }] }, image, image] }] }] };
+  const result = await documentMarkdown(doc, read);
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(result).toContain("10. 正文"); expect(result).toContain("    ![");
+  expect(result.match(/data:image/g)).toHaveLength(2);
+});
+
+it.each(["第一行\n第二行  \n", "  缩进\n\n", "包含 ``` 围栏", "末尾空格  "])("preserves code-block whitespace and fences: %j", async text => {
+  const output = await documentMarkdown({ type: "doc", content: [{ type: "codeBlock", content: [{ type: "text", text }] }] }, async () => "");
+  const fence = text.includes("```") ? "````" : "```";
+  expect(output).toBe(fence + "\n" + text + (text.endsWith("\n") ? "" : "\n") + fence);
 });

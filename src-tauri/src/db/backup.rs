@@ -287,6 +287,13 @@ async fn inspect(c: &mut SqliteConnection) -> Result<()> {
         include_str!("../../migrations/0008_journal_content.sql").into(),
         false,
     );
+    let journal_review = sqlx::migrate::Migration::new(
+        9,
+        "journal_review".into(),
+        sqlx::migrate::MigrationType::ReversibleUp,
+        include_str!("../../migrations/0009_journal_review.sql").into(),
+        false,
+    );
     let expected: Vec<_> = [
         initial,
         schedule,
@@ -296,6 +303,7 @@ async fn inspect(c: &mut SqliteConnection) -> Result<()> {
         content,
         completions,
         journal_content,
+        journal_review,
     ]
     .into_iter()
     .take(version as usize)

@@ -1,0 +1,20 @@
+[
+ {"name":"打开工作日记","text":"日记","wait":"!!document.querySelector('[contenteditable=\"true\"]')"},
+ {"name":"确认空白隔离每日页","eval":"({text:document.querySelector('.daily-journal').innerText,editors:[...document.querySelectorAll('[contenteditable]')].map(e=>({label:e.getAttribute('aria-label'),text:e.innerText}))})","shot":"native-01-empty-day.png"},
+ {"name":"输入每日工作记录并自动保存","type":"[contenteditable=\"true\"]","value":"原生GUI验收 20261031：完成客户授信资料复核，确认放款条件与后续跟进安排。","wait":"document.querySelector('.daily-note [role=\"status\"]')?.textContent==='已保存'"},
+ {"name":"新增本日重点","text":"添加重点","wait":"!!document.querySelector('.review-highlight-editor input')"},
+ {"name":"填写重点摘要","type":".review-highlight-editor input[id$=\"summary\"]","value":"原生验收重点：客户授信资料复核"},
+ {"name":"填写结果说明","type":".review-highlight-editor input[id$=\"result\"]","value":"复核资料齐备，已明确放款条件与责任人。"},
+ {"name":"填写工作主题","type":".review-highlight-editor input[id$=\"theme\"]","value":"原生验收"},
+ {"name":"保存本日重点","text":"保存重点","wait":"!document.querySelector('.review-highlight-editor') && document.querySelector('.review-highlight-list')?.innerText.includes('原生验收重点')","shot":"native-02-day-highlight.png"},
+ {"name":"打开月度回顾","text":"月度回顾","wait":"!!document.querySelector('.review-material-item button[aria-label^=\"加入回顾\"]')"},
+ {"name":"月度加入本日重点","click":".review-material-item button[aria-label^=\"加入回顾\"]","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生验收重点') && !!document.querySelector('button[aria-label^=\"已加入回顾\"][disabled]')","shot":"native-03-month-added.png"},
+ {"name":"打开年度回顾","text":"年度回顾","wait":"!!document.querySelector('button[aria-label=\"加入2026-10月度回顾\"]')"},
+ {"name":"年度加入10月回顾","click":"button[aria-label=\"加入2026-10月度回顾\"]","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生验收重点') && !!document.querySelector('button[aria-label=\"已加入2026-10月度回顾\"][disabled]')","shot":"native-04-year-added.png"},
+ {"name":"记录年度保存状态","eval":"({body:document.querySelector('.daily-note [contenteditable]').innerText,status:document.querySelector('.daily-note [role=\"status\"]').innerText})"},
+ {"name":"重载真实WebView","reload":true,"wait":"!!document.querySelector('button') && !document.body.innerText.includes('正在初始化')"},
+ {"name":"重载后打开日记","text":"日记","wait":"!!document.querySelector('.review-tabs')"},
+ {"name":"重载后验证每日正文与重点","text":"每日","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生GUI验收 20261031') && document.querySelector('.review-highlight-list')?.innerText.includes('原生验收重点')","shot":"native-05-reloaded-day.png"},
+ {"name":"重载后验证月度摘录与去重状态","text":"月度回顾","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生验收重点') && !!document.querySelector('button[aria-label^=\"已加入回顾\"][disabled]')","shot":"native-06-reloaded-month.png"},
+ {"name":"重载后验证年度月回顾摘录与去重状态","text":"年度回顾","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生验收重点') && !!document.querySelector('button[aria-label=\"已加入2026-10月度回顾\"][disabled]')","shot":"native-07-reloaded-year.png"}
+]

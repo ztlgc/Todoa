@@ -1,0 +1,4 @@
+[
+ {"name":"打开修复版每日","text":"每日","wait":"!!document.querySelector('.review-highlight-panel')"},
+ {"name":"滚动到本日重点","eval":"document.querySelector('.review-highlight-panel').scrollIntoView({block:'start'})","shot":"native-25-fixed-day-highlight-scrolled.png"}
+]

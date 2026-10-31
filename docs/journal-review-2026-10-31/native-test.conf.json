@@ -1,0 +1,7 @@
+{
+  "identifier": "com.todoa.desktop.test.review20261031",
+  "productName": "Todoa Review Validation",
+  "app": { "windows": [{ "label": "main", "title": "Todoa Review Validation", "visible": true, "focus": false, "width": 1360, "height": 940 }] },
+  "build": { "beforeDevCommand": "", "beforeBuildCommand": "", "devUrl": "http://127.0.0.1:1437" },
+  "bundle": { "active": false }
+}

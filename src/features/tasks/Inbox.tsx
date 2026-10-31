@@ -62,7 +62,7 @@ function TaskItem({ task, now, onEdit }: { task: Task; now: Date; onEdit: (task:
     <div className="flex items-start gap-3">
       <Checkbox checked={task.status === "completed"} onCheckedChange={checked => void changeStatus(checked)} disabled={pending} aria-label={`${task.status === "completed" ? "取消完成" : "完成"}：${task.title}`} className={`mt-1 ${priority.checkbox}`} />
       <div className="min-w-0 flex-1 space-y-1">
-        <Button data-task-title variant="ghost" className={`h-auto w-full justify-start whitespace-normal break-all px-0 text-left ${task.status === "completed" ? "text-muted-foreground line-through" : "text-foreground"}`} aria-label={`编辑任务：${task.title}`} onClick={event => onEdit(task, event.currentTarget)} disabled={pending}>{task.title}</Button>
+        <Button data-task-title variant="ghost" className={`h-auto w-full justify-start whitespace-normal break-all px-0 text-left hover:bg-transparent dark:hover:bg-transparent ${task.status === "completed" ? "text-muted-foreground line-through" : "text-foreground"}`} aria-label={`编辑任务：${task.title}`} onClick={event => onEdit(task, event.currentTarget)} disabled={pending}>{task.title}</Button>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           {task.dueDate && <span className="text-muted-foreground">{task.dueDate} · 全天{task.status === "todo" && task.dueDate < toLocalInput(now.toISOString()).slice(0,10) && <span className="ml-2 text-destructive">逾期</span>}</span>}
           {task.status === "completed" && <span className="text-muted-foreground">已完成</span>}

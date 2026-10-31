@@ -16,4 +16,9 @@ commands.allow = ["reconcile_journal_tasks"]
 [[permission]]
 identifier = "main-journal-content"
 description = "Main may save journal content and access its own local images."
-commands.allow = ["save_journal_content", "import_journal_image", "read_journal_image"]
+commands.allow = ["save_journal_content", "import_journal_image", "read_journal_image", "prune_journal_images"]
+
+[[permission]]
+identifier = "main-journal-review"
+description = "Main may manage highlight snapshots and atomically append review materials."
+commands.allow = ["list_journal_highlights", "save_journal_highlight", "remove_journal_highlight", "add_journal_review_material", "journal_review_materials"]

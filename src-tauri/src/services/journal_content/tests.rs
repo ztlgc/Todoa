@@ -27,6 +27,122 @@ async fn database() -> SqlitePool {
 }
 
 #[test]
+fn normalized_utf16_limits_match_browser_and_rejections_leave_saved_content_intact() {
+    tauri::async_runtime::block_on(async {
+        let pool = database().await;
+        for text in [
+            "字".repeat(199_999),
+            "字".repeat(200_000),
+            "😀".repeat(100_000),
+            format!("{}\u{feff}\n  ", "字".repeat(200_000)),
+        ] {
+            let doc = serde_json::json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":text}]}]}).to_string();
+            let revision: i64 =
+                sqlx::query_scalar("SELECT coalesce(max(content_revision),0) FROM journal_records")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(
+                save(&pool, "day", "2026-10-24", &doc, revision).await,
+                Ok(revision + 1)
+            );
+        }
+        let revision: i64 = sqlx::query_scalar("SELECT content_revision FROM journal_records")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let multi_paragraph = serde_json::json!({"type":"doc","content":[
+            {"type":"paragraph","content":[{"type":"text","text":"字".repeat(100_000)}]},
+            {"type":"paragraph","content":[{"type":"text","text":"字".repeat(99_999)}]}
+        ]})
+        .to_string();
+        assert_eq!(
+            save(&pool, "day", "2026-10-24", &multi_paragraph, revision).await,
+            Ok(revision + 1)
+        );
+        let before: String = sqlx::query_scalar("SELECT content_json FROM journal_records")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let too_long = serde_json::json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"字".repeat(200_001)}]}]}).to_string();
+        assert_eq!(
+            save(&pool, "day", "2026-10-24", &too_long, revision + 1).await,
+            Err("CONTENT_TOO_LONG")
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, String>("SELECT content_json FROM journal_records")
+                .fetch_one(&pool)
+                .await
+                .unwrap(),
+            before
+        );
+        assert_eq!(normalized_text("text\u{0085}\u{feff}\n"), "text\u{0085}");
+    });
+}
+
+#[test]
+fn image_collection_preserves_saved_trashed_and_draft_images_and_aborts_on_bad_content() {
+    tauri::async_runtime::block_on(async {
+        let pool = database().await;
+        let mut ids = Vec::new();
+        for _ in 0..4 {
+            ids.push(
+                import_image(
+                    &pool,
+                    "day",
+                    "2026-10-24",
+                    "image/png",
+                    b"\x89PNG\r\n\x1a\nfixture",
+                )
+                .await
+                .unwrap(),
+            );
+        }
+        let doc = serde_json::json!({"type":"doc","content":[{"type":"image","attrs":{"src":format!("todoa-asset:{}",ids[0])}}]}).to_string();
+        save(&pool, "day", "2026-10-24", &doc, 0).await.unwrap();
+        sqlx::query("UPDATE journal_records SET deleted_at='2026-10-24T01:00:00.000Z'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(prune_images(&pool, vec![ids[1]]).await, Ok(2));
+        for id in &ids[..2] {
+            assert!(read_image(&pool, "day", "2026-10-24", *id).await.is_ok());
+        }
+        assert_eq!(
+            read_image(&pool, "day", "2026-10-24", ids[2]).await,
+            Err("IMAGE_NOT_FOUND")
+        );
+        sqlx::query("UPDATE journal_records SET content_json='{\"type\":\"unsupported\"}'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(prune_images(&pool, vec![]).await.is_err());
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM journal_assets")
+                .fetch_one(&pool)
+                .await
+                .unwrap(),
+            2
+        );
+        assert!(prune_images(&pool, vec![-1]).await.is_err());
+        sqlx::query("UPDATE journal_records SET content_json=NULL")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(prune_images(&pool, vec![]).await, Ok(2));
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT count(*) FROM journal_records WHERE deleted_at IS NOT NULL"
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+            1
+        );
+    });
+}
+
+#[test]
 fn rich_content_is_independent_and_conflicts_preserve_the_last_saved_document() {
     tauri::async_runtime::block_on(async {
         let pool = database().await;

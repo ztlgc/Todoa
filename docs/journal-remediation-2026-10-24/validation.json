@@ -1,0 +1,210 @@
+{
+  "completedAt": "2026-10-25T09:39:51.0279518+08:00",
+  "baseCommit": "053b6040930d8ed3369b860d9955e18a32b15eb4",
+  "version": "1.0.5",
+  "schema": 8,
+  "completedDefects": [
+    "D01",
+    "D02",
+    "D03",
+    "D04",
+    "D05",
+    "D06",
+    "D07"
+  ],
+  "checks": [
+    {
+      "name": "frontend-full-final",
+      "result": "passed",
+      "exitCode": 0,
+      "files": 45,
+      "tests": 312,
+      "log": "frontend-tests-final.log"
+    },
+    {
+      "name": "rust-full",
+      "result": "passed",
+      "tests": 59,
+      "log": "rust-tests-final.log"
+    },
+    {
+      "name": "rust-extra-boundary-final",
+      "result": "passed",
+      "exitCode": 0,
+      "tests": 1,
+      "log": "rust-boundary-final.log"
+    },
+    {
+      "name": "eslint-final",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "lint-final.log"
+    },
+    {
+      "name": "tsc-and-vite-final",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "frontend-build-final.log"
+    },
+    {
+      "name": "cargo-fmt-check",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "rust-format-final.log"
+    },
+    {
+      "name": "clippy-all-targets-deny-warnings-final",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "clippy-completion.log"
+    },
+    {
+      "name": "git-diff-check",
+      "result": "passed",
+      "exitCode": 0,
+      "log": "diff-check.log"
+    }
+  ],
+  "browser": {
+    "origin": "http://127.0.0.1:1436/",
+    "data": "fictional isolated samples",
+    "actualTiptap": true,
+    "actualIDB": true,
+    "actualWebLocks": true,
+    "imageLifecycleAssertions": 11,
+    "sessionConcurrency": "two editor locks in one browser page",
+    "finalWarningsAndErrors": 0,
+    "nativeGUIValidated": false,
+    "installedGUIValidated": false,
+    "exportPngMatchesFixture": true,
+    "viewportOverrideReset": true
+  },
+  "unchanged": [
+    "version",
+    "migrations",
+    "schema",
+    "quick-add permissions"
+  ],
+  "realUserDataOpened": false,
+  "committed": false,
+  "pushed": false,
+  "installerBuilt": false,
+  "released": false,
+  "remainingBoundaries": [
+    "native GUI with isolated data",
+    "real Windows IME across midnight",
+    "native file dialog and external link",
+    "sleep and time-zone changes",
+    "DPI and 200 percent font scale",
+    "native five-year image-heavy peak performance",
+    "bad-record diagnosis and database-generation-aware drafts"
+  ],
+  "sourceSha256": [
+    {
+      "path": "src-tauri/build.rs",
+      "sha256": "19b73a7f9c353f30df224cfc914d977a9e40fb433c8cae2e00e6c889ae47d239"
+    },
+    {
+      "path": "src-tauri/permissions/journal.toml",
+      "sha256": "1bf880dbc7916b1e200ac97fd6c854c67fd714ffec19b0ddcff593eb4b6f878a"
+    },
+    {
+      "path": "src-tauri/src/commands/journal_content.rs",
+      "sha256": "d2b3b9b4fbfae3e42a33ebc26146aa40a85e10e0027df43dce86fb9b6372efa8"
+    },
+    {
+      "path": "src-tauri/src/lib.rs",
+      "sha256": "66700be3cb9695561b85f4dd053b6944ba85e13c6f1ddd2a64653776346cc2e7"
+    },
+    {
+      "path": "src-tauri/src/preferences.rs",
+      "sha256": "6b4b935fe7139e808968e6ac258080da91f10e743e0611d05d1d1c09277083eb"
+    },
+    {
+      "path": "src-tauri/src/services/journal_content.rs",
+      "sha256": "93d4944ed8d082d8ed4890f224dff05d54392c2f40855d467505164f043e1de7"
+    },
+    {
+      "path": "src-tauri/src/services/journal_content/tests.rs",
+      "sha256": "7cb7132289f2d37d389e9eb69a32fb3bf8e128083302b6adc6fccb8b65497122"
+    },
+    {
+      "path": "src-tauri/src/services/schedule.rs",
+      "sha256": "de90b9664e90ffd21a728116f286c6c4e10e93b76c92d6c615464c8d2d34581c"
+    },
+    {
+      "path": "src/data/browserJournalImages.ts",
+      "sha256": "5b9580547144fb38d42d3b4d4015b7baae64fda66a573213dcd868816c45595a"
+    },
+    {
+      "path": "src/data/journalImageMaintenance.test.ts",
+      "sha256": "baa2b8bcd7359d0899ef3449b2ce5eabc1123710a3b576e606e28d3cf62511b7"
+    },
+    {
+      "path": "src/data/journalImageMaintenance.ts",
+      "sha256": "b15dbc53c22d0232426335910b7d85e48b76137b9503070974699f765b7dc0e3"
+    },
+    {
+      "path": "src/data/repositories/JournalRepository.ts",
+      "sha256": "1ba79396e1806376224cb6b604aa97cbb7f960bcc9e0a4b996ca25eed8c6b0c2"
+    },
+    {
+      "path": "src/domain/journalContent.test.ts",
+      "sha256": "a8a1df13d36b121aa2c835575bd541fb7b7d047d1ed51c6e0f7e9dfc092ade88"
+    },
+    {
+      "path": "src/domain/journalContent.ts",
+      "sha256": "01a66561cf4d904f0333b57c8ccf6bdc308af638354f158531e25db392b8aade"
+    },
+    {
+      "path": "src/features/journal/JournalAutomation.tsx",
+      "sha256": "732b6be4ad94b9953b8986988a91b46660e8e2c9467d4a2c74e575878274c4e0"
+    },
+    {
+      "path": "src/features/journal/JournalContentPreview.tsx",
+      "sha256": "0e43412cb69eaefa2abdb9b58cdf33077cb2c0b6127ef877b9d85ebf656f4170"
+    },
+    {
+      "path": "src/features/journal/JournalNoteEditor.tsx",
+      "sha256": "f094ee2cdc86b1e243c61038872181551c7ee2cbc4ddd63dbd34cc0e90048f78"
+    },
+    {
+      "path": "src/features/journal/JournalRemediation.test.tsx",
+      "sha256": "94ce5c4632d7a887792950747a932fd1d57ebca6c4bf836871c00e6779500509"
+    },
+    {
+      "path": "src/features/journal/JournalWorkspace.tsx",
+      "sha256": "a0c72a0e6d9ba1f0d921a7b0c6cf24f2757b6143964af29a5cb3f5caf2e66e30"
+    },
+    {
+      "path": "src/features/journal/simple-journal.css",
+      "sha256": "07e427962d8cca912d986e1d769305a4c75f78679213d9b1f8af2b68604725b8"
+    }
+  ],
+  "evidenceSha256": [
+    {
+      "path": "VALIDATION.md",
+      "sha256": "002e4349192061f4f3add80ab0bc32edbc3f074219db9bf853cd9b4a40a4dd51"
+    },
+    {
+      "path": "export-day.md",
+      "sha256": "6fda4e57d7f78541a270aebbe617c1015039785012b4da531d2b6744563651e4"
+    },
+    {
+      "path": "export-month.md",
+      "sha256": "185814bdf10f99b4df6ce927419dac1510da1e1e4c3af5bd6a1b75b7de1526e0"
+    },
+    {
+      "path": "search-export-scope-final.png",
+      "sha256": "e55ee094edd00fe865758e47c7dd84e2df5983179f53057059e0a2a254d32e04"
+    },
+    {
+      "path": "browser-console-final.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "history-benchmark.json",
+      "sha256": "4a50edf2feddb5330a88f4f67bb9bfc51a27429413336a6266d6581f3955c4ed"
+    }
+  ]
+}

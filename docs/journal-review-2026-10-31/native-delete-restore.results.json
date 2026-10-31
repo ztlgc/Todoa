@@ -1,0 +1,97 @@
+{
+  "databasePath": "C:\\Users\\Heart\\AppData\\Roaming\\com.todoa.desktop.test.review20261031\\todo.db",
+  "records": [
+    {
+      "step": "记录原生布局尺寸",
+      "value": {
+        "viewport": {
+          "width": 1360,
+          "height": 844,
+          "dpr": 1.25
+        },
+        "boxes": [
+          {
+            "selector": ".daily-layout",
+            "x": 172.40000915527344,
+            "y": 267.4875183105469,
+            "width": 1076,
+            "height": 3945.199951171875,
+            "display": "grid",
+            "gridTemplateColumns": "230px 826px"
+          },
+          {
+            "selector": ".daily-page",
+            "x": 172.40000915527344,
+            "y": 267.4875183105469,
+            "width": 230,
+            "height": 3945.199951171875,
+            "display": "block",
+            "gridTemplateColumns": "none"
+          },
+          {
+            "selector": ".review-composition",
+            "x": 205.1999969482422,
+            "y": 438.0874938964844,
+            "width": 164.40000915527344,
+            "height": 3661,
+            "display": "grid",
+            "gridTemplateColumns": "0px 250px"
+          },
+          {
+            "selector": ".daily-note",
+            "x": 205.1999969482422,
+            "y": 438.0874938964844,
+            "width": 0,
+            "height": 3661,
+            "display": "block",
+            "gridTemplateColumns": "none"
+          },
+          {
+            "selector": ".review-materials-side",
+            "x": 233.1999969482422,
+            "y": 438.0874938964844,
+            "width": 250,
+            "height": 715,
+            "display": "block",
+            "gridTemplateColumns": "none"
+          }
+        ]
+      }
+    },
+    {
+      "name": "记录原生布局尺寸",
+      "passed": true,
+      "at": "2026-10-31T09:45:25.309Z"
+    },
+    {
+      "name": "回到每日",
+      "passed": true,
+      "at": "2026-10-31T09:45:25.370Z"
+    },
+    {
+      "name": "打开更多菜单",
+      "passed": true,
+      "at": "2026-10-31T09:45:25.395Z"
+    },
+    {
+      "name": "请求移入回收站",
+      "passed": true,
+      "at": "2026-10-31T09:45:25.700Z"
+    },
+    {
+      "step": "记录删除确认对话框",
+      "value": [
+        {
+          "text": "确认操作\n\n将这篇记录移入回收站？可以在回收站恢复。\n\n继续编辑\n移入回收站",
+          "html": "<div data-open=\"\" id=\"_r_4_\" role=\"dialog\" tabindex=\"-1\" data-base-ui-focusable=\"\" data-slot=\"dialog-content\" class=\"fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 max-h-[90dvh] overflow-y-auto\" aria-labelledby=\"base-ui-_r_g_\" aria-describedby=\"base-ui-_r_h_\" style=\"--nested-dialogs: 0;\"><h2 id=\"base-ui-_r_g_\" data-slot=\"dialog-title\" class=\"font-heading text-base leading-none font-medium\">确认操作</h2><p id=\"base-ui-_r_h_\" data-slot=\"dialog-description\" class=\"text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground\">将这篇记录移入回收站？可以在回收站恢复。</p><div class=\"flex flex-wrap gap-2\"><button type=\"button\" tabindex=\"0\" data-slot=\"button\" class=\"group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*='size-'])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2\">继续编辑</button><button type=\"button\" tabindex=\"0\" data-slot=\"button\" class=\"group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-3 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*='size-'])]:size-4 bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40 h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2\">移入回收站</button></div></div>"
+        }
+      ]
+    },
+    {
+      "name": "记录删除确认对话框",
+      "passed": true,
+      "at": "2026-10-31T09:45:25.702Z"
+    }
+  ],
+  "events": []
+}

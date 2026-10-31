@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-24",
+  "timezone": "Asia/Shanghai",
+  "head": "053b6040930d8ed3369b860d9955e18a32b15eb4",
+  "version": "1.0.5",
+  "initialWorkingTree": "clean",
+  "productionFilesChanged": false,
+  "frontend": {
+    "failed": 0,
+    "passed": 289,
+    "exitCode": 0,
+    "files": 43
+  },
+  "rust": {
+    "failed": 0,
+    "exitCode": 0,
+    "passed": 57
+  },
+  "typecheck": {
+    "diagnostics": "none",
+    "exitCode": 0,
+    "command": "pnpm exec tsc --noEmit"
+  },
+  "lint": {
+    "exitCode": 0,
+    "command": "pnpm lint"
+  },
+  "browser": {
+    "fictionalDataOnly": true,
+    "note": "Search filters history only; range and download contain other days. Linkify initialization warnings observed.",
+    "narrow": {
+      "height": 844,
+      "documentScrollWidth": 375,
+      "width": 390
+    },
+    "origin": "http://127.0.0.1:1435",
+    "wide": {
+      "height": 900,
+      "documentScrollWidth": 1280,
+      "width": 1280
+    },
+    "viewportReset": true,
+    "richDownload": {
+      "bold": true,
+      "completedTaskLines": 1,
+      "embeddedPng": true
+    },
+    "tabClosed": true
+  },
+  "sourceSha256": {
+    "src/data/browserJournalImages.ts": "B53E32A85AD487E6AED57EDF9CF91D84D20B294F108E18BAFD3E0CCA96C7C00C",
+    "src/domain/journalContent.ts": "9BBA0CC24C0ED06BF6F2835B50B02E8F80DC0B1DE1104D05448FFCF2B42BE825",
+    "src-tauri/src/services/journal_content.rs": "35243A27D20D4855D772A5B49DC7A5DA15604B94763F95A98DD2C378DF33826A",
+    "src/data/repositories/JournalRepository.ts": "9C47DD590899FDE8821604D21943BADC50CAE9C832519335E918C87C5A760A17",
+    "src/features/lists/ListsWorkspace.tsx": "AA9378B2F8E90D61E1041AE0EA48690AA006DF02D1B93608CABE06D65091A8DA",
+    "src/features/journal/JournalWorkspace.tsx": "F9E309326214C43AA6C6A4DB2831ED53FA2BB1A244C13606976396FEDCF6812B",
+    "src/features/journal/JournalNoteEditor.tsx": "498C0DBCCF2A6E2C402F7D60D447735AE9BC59D7E4F1964549E3F8A8376B21D0",
+    "src/features/tasks/useLocalClock.ts": "F0C38724835839F4225E59EA43BAA97A641483625AF8346BCC8A611DC9732286"
+  }
+}

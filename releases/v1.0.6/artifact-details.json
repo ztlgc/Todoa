@@ -1,0 +1,17 @@
+{
+  "version": "1.0.6",
+  "filename": "Todoa_1.0.6_x64-setup.exe",
+  "bytes": 3187185,
+  "sha256": "bcdd2511ae10e39cde0b528265dc7ed2e827785f49cd770ed0a8ef2c951dc3a4",
+  "installer_product_version": "1.0.6",
+  "application_product_version": "1.0.6",
+  "application_architecture": "x86_64",
+  "archive_integrity_passed": true,
+  "embedded_payload_matches_build": true,
+  "application_sha256": "bfd447153a258eb8db7aaceaf1bc76ae189ed71213bcad1cb6d487ebe9359fc5",
+  "packaged_application_sha256": "5e66b8f9de989b10b40bc4e0c26157f8b6765f30624aa6eb7b9d2c6b0ad5ae83",
+  "tauri_bundle_marker_patch": "__TAURI_BUNDLE_TYPE_VAR_UNK -> __TAURI_BUNDLE_TYPE_VAR_NSS",
+  "installer_signature_status": "NotSigned",
+  "installation_performed": false,
+  "full_test_suite_rerun": false
+}

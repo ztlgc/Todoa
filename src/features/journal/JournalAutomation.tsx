@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBrowserDebug } from "@/app/browserDebug";
 import { browserListRepository, browserTaskRepository } from "@/data/browserRepositories";
 import { journalRepository } from "@/data/repositories/JournalRepository";
+import { pruneUnusedJournalImages } from "@/data/journalImageMaintenance";
 
 // Mounted after DatabaseGate, independently of the selected workspace.
 export function JournalAutomation() {
@@ -13,6 +14,8 @@ export function JournalAutomation() {
         await journalRepository.reconcile([...active, ...trash], lists);
       } else await journalRepository.reconcile();
       await client.invalidateQueries({ queryKey: ["journal"] });
+      // Maintenance failure must not hide tasks or claim reconciliation failed.
+      void pruneUnusedJournalImages().catch(() => console.error("JOURNAL_IMAGE_CLEANUP_DEFERRED"));
       return true;
     },
   });

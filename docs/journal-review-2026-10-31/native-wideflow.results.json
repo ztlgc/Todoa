@@ -1,0 +1,64 @@
+{
+  "databasePath": "C:\\Users\\Heart\\AppData\\Roaming\\com.todoa.desktop.test.review20261031\\todo.db",
+  "records": [
+    {
+      "name": "新产物重启后打开日记",
+      "passed": true,
+      "at": "2026-10-31T09:55:29.873Z"
+    },
+    {
+      "name": "重启后验证每日正文与重点持久化",
+      "passed": true,
+      "at": "2026-10-31T09:55:30.022Z"
+    },
+    {
+      "name": "打开修复后月度回顾",
+      "passed": true,
+      "at": "2026-10-31T09:55:30.201Z"
+    },
+    {
+      "step": "测量修复后月度布局",
+      "value": {
+        "viewport": {
+          "width": 1360,
+          "height": 844,
+          "dpr": 1.25
+        },
+        "layout": "block",
+        "pageWidth": 1076,
+        "composition": "577.875px 404.513px",
+        "noteWidth": 577.875
+      }
+    },
+    {
+      "name": "测量修复后月度布局",
+      "passed": true,
+      "at": "2026-10-31T09:55:30.322Z"
+    },
+    {
+      "name": "打开修复后年度回顾",
+      "passed": true,
+      "at": "2026-10-31T09:55:30.496Z"
+    },
+    {
+      "step": "测量修复后年度布局",
+      "value": {
+        "viewport": {
+          "width": 1360,
+          "height": 844,
+          "dpr": 1.25
+        },
+        "layout": "block",
+        "pageWidth": 1076,
+        "composition": "577.875px 404.513px",
+        "noteWidth": 577.875
+      }
+    },
+    {
+      "name": "测量修复后年度布局",
+      "passed": true,
+      "at": "2026-10-31T09:55:30.633Z"
+    }
+  ],
+  "events": []
+}

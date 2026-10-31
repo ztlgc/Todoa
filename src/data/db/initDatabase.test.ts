@@ -7,11 +7,11 @@ vi.mock("@tauri-apps/plugin-sql", () => ({ default: { get: vi.fn() } }));
 const select = vi.fn();
 beforeEach(() => {
   vi.resetModules(); vi.resetAllMocks();
-  vi.mocked(invoke).mockResolvedValue(8);
-  select.mockResolvedValue([{ user_version: 8 }]);
+  vi.mocked(invoke).mockResolvedValue(9);
+  select.mockResolvedValue([{ user_version: 9 }]);
   vi.mocked(Database.get).mockReturnValue({ select, execute: vi.fn() } as unknown as Database);
 });
-it("opens a desktop database with all eight migrations applied", async () => {
+it("opens a desktop database with all nine migrations applied", async () => {
   const { initDatabase } = await import("./initDatabase");
   await expect(initDatabase()).resolves.toHaveProperty("select");
   expect(invoke).toHaveBeenCalledWith("database_boot_status");

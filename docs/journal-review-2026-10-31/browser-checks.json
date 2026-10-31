@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-31",
+  "origin": "http://127.0.0.1:1437",
+  "fixture": "虚构清禾项目；浏览器独立 localStorage，不接触桌面数据库",
+  "flow": [
+    "在今日工作记录输入并等待显示已保存",
+    "添加重点：摘要、结果说明、工作主题",
+    "月度回顾中加入该重点，正文出现日期、结果、主题和来源",
+    "年度回顾中加入 2026-10 月度回顾，正文出现月度回顾来源",
+    "年度回顾再次加入同一原始重点，被来源重叠规则拒绝且正文仍只有一份",
+    "按月查看全年原始日记，展开 10 月日期索引",
+    "整页切换至任务再返回日记，文字和重点仍在",
+    "浏览器刷新后每日正文、重点、月度回顾和年度回顾仍保留",
+    "搜索关键词、只看重点、回收站入口和导出菜单可用"
+  ],
+  "checks": {
+    "dailyRichTextSaved": true,
+    "highlightSummaryResultThemeSaved": true,
+    "highlightAddedToMonthlyBodyWithSource": true,
+    "selectedMaterialDisabled": true,
+    "monthlyAddedToYearlyBodyWithSource": true,
+    "overlapRejectedWithoutDuplicate": true,
+    "yearRawMonthsExpand": true,
+    "reloadPersistsNoteHighlightAndBothReviews": true,
+    "searchKeywordMarksSnippet": true,
+    "searchOnlyHighlightsReturnsExcerpt": true,
+    "reviewExportCaptured": true,
+    "consoleWarningsAndErrors": 0
+  },
+  "layout": {
+    "wide": { "viewport": 1360, "layout": "block", "compositionColumns": "577.875px 404.513px", "noteWidth": 577.875, "documentScrollWidth": 1345 },
+    "narrow": { "viewport": 390, "compositionColumns": "252.8px", "documentScrollWidth": 390, "horizontalOverflow": false }
+  },
+  "overlapMessage": "这篇月度回顾与已加入的重点重叠，请选用原始重点，避免重复加入。",
+  "export": { "filename": "2026-01-01-年度回顾.md", "bytes": 290, "capturedInMemory": true, "note": "浏览器调试环境捕获 Blob 内容，未向磁盘保存下载文件。" },
+  "knownLayoutFix": "首次原生宽窗验收发现 .review-layout 被后置 .daily-layout 网格规则覆盖；已将选择器改为 .daily-layout.review-layout 并重新验证。"
+}

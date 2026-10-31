@@ -1,0 +1,11 @@
+[
+ {"name":"确认删除本日日记","click":"[role=\"dialog\"] button:last-child","wait":"document.querySelector('.daily-page')?.innerText.includes('这篇记录在回收站')","shot":"native-09-deleted-day.png"},
+ {"name":"删除后检查月度摘录仍保留且标记来源状态","text":"月度回顾","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生验收重点') && document.querySelector('.review-material-status')?.innerText.includes('来源在回收站')","shot":"native-10-deleted-source-month.png"},
+ {"name":"打开日记回收站菜单","click":"button[aria-label=\"日记更多操作\"]"},
+ {"name":"打开日记回收站","click":".daily-menu button:nth-last-child(2)","wait":"document.querySelector('.review-search')?.innerText.includes('日记回收站') && !!document.querySelector('button[aria-label=\"恢复2026-10-31日记\"]')","shot":"native-11-trash.png"},
+ {"name":"从回收站恢复日记","click":"button[aria-label=\"恢复2026-10-31日记\"]","wait":"document.querySelector('.review-search-count')?.innerText.includes('没有匹配')","shot":"native-12-restored-trash-empty.png"},
+ {"name":"恢复后验证每日正文和重点","text":"每日","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生GUI验收 20261031') && document.querySelector('.review-highlight-list')?.innerText.includes('原生验收重点')","shot":"native-13-restored-day.png"},
+ {"name":"恢复后验证月度来源状态清除","text":"月度回顾","wait":"document.querySelector('.daily-note [contenteditable]')?.innerText.includes('原生验收重点') && !document.querySelector('.review-material-status')","shot":"native-14-restored-month.png"},
+ {"name":"打开导出菜单","click":"button[aria-label=\"日记更多操作\"]"},
+ {"name":"点击原生导出当前回顾","text":"导出当前回顾"}
+]

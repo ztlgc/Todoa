@@ -58,8 +58,20 @@ export function journalSearchText(record: JournalRecord): string {
 }
 const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/[\\`*_[\]]/g, "\\$&");
 export async function documentMarkdown(doc: JSONContent, image: (id: number) => Promise<string>): Promise<string> {
+  const images = new Map<number, Promise<string>>();
+  function readImage(id: number) {
+    let pending = images.get(id);
+    if (!pending) { pending = image(id); images.set(id, pending); }
+    return pending;
+  }
+  const codeText = (node: JSONContent): string => node.type === "hardBreak" ? "\n" : (node.text ?? "") + (node.content ?? []).map(codeText).join("");
   async function render(node: JSONContent): Promise<string> {
-    const body = (await Promise.all((node.content ?? []).map(render))).join("");
+    if (node.type === "codeBlock") {
+      const text = codeText(node), longest = (text.match(/`+/g) ?? []).reduce((max, value) => Math.max(max, value.length), 0);
+      const fence = "`".repeat(Math.max(3, longest + 1));
+      return fence + String(node.attrs?.language ?? "").replace(/[^a-z0-9_-]/gi, "") + "\n" + text + (text.endsWith("\n") ? "" : "\n") + fence + "\n\n";
+    }
+    const children = await Promise.all((node.content ?? []).map(render)), body = children.join("");
     switch (node.type) {
       case "text": {
         let text = escape(node.text ?? "");
@@ -74,16 +86,16 @@ export async function documentMarkdown(doc: JSONContent, image: (id: number) => 
         }
         return text;
       }
-      case "image": return `![${escape(String(node.attrs?.alt ?? "日记图片"))}](${await image(Number(String(node.attrs?.src).slice(12)))})\n\n`;
+      case "image": return `![${escape(String(node.attrs?.alt ?? "日记图片"))}](${await readImage(Number(String(node.attrs?.src).slice(12)))})\n\n`;
       case "paragraph": return body + "\n\n";
       case "heading": return "#".repeat(Math.min(6, Math.max(1, Number(node.attrs?.level) || 2))) + " " + body + "\n\n";
       case "hardBreak": return "  \n";
       case "blockquote": return body.trimEnd().split("\n").map(line => "> " + line).join("\n") + "\n\n";
-      case "bulletList": case "orderedList": return (await Promise.all((node.content ?? []).map(async (child, index) => {
-        const content = (await render(child)).trimEnd().split("\n");
-        return (node.type === "bulletList" ? "- " : `${index + (Number(node.attrs?.start) || 1)}. `) + content[0] + content.slice(1).map(line => "\n  " + line).join("");
-      }))).join("\n") + "\n\n";
-      case "codeBlock": return "```" + String(node.attrs?.language ?? "").replace(/[^a-z0-9_-]/gi, "") + "\n" + plainText(node) + "\n```\n\n";
+      case "bulletList": case "orderedList": return children.map((child, index) => {
+        const content = child.replace(/\n+$/, "").split("\n");
+        const marker = node.type === "bulletList" ? "- " : `${index + (Number(node.attrs?.start) || 1)}. `;
+        return marker + content[0] + content.slice(1).map(line => "\n" + " ".repeat(marker.length) + line).join("");
+      }).join("\n") + "\n\n";
       case "horizontalRule": return "---\n\n";
       default: return body;
     }

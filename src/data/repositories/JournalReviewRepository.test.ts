@@ -1,0 +1,94 @@
+// @vitest-environment jsdom
+import { beforeEach, expect, it } from "vitest";
+import { JournalRepository } from "./JournalRepository";
+import { JournalReviewRepository } from "./JournalReviewRepository";
+import { emptyJournal } from "@/domain/journal";
+import { plainDocument } from "@/domain/contentDocument";
+import type { HighlightInput } from "@/domain/journalReview";
+import { completionSnapshot } from "@/domain/journalAutomation";
+import type { Task } from "@/domain/task";
+const key = "review-test";
+const journal = new JournalRepository(undefined, () => true, () => localStorage, key);
+const repo = new JournalReviewRepository(() => true, () => localStorage, () => key);
+const note = (id = "h"): HighlightInput => ({ id, date: "2026-10-18", summary: " 摘录 ", result: "结果", theme: " 项目 ", sourceType: "note", sourceId: id, sourceRevision: 0 });
+beforeEach(() => localStorage.clear());
+it("saves empty-day highlights, trims and detects stale source and own revisions", async () => {
+  await repo.save(note(), 0);
+  expect((await repo.list("2026-10-01", "2026-10-31"))[0]).toMatchObject({ summary: "摘录", theme: "项目" });
+  await expect(repo.save(note(), 0)).rejects.toThrow("已更新");
+  await journal.saveContent("day", "2026-10-18", plainDocument("原文"), 0);
+  expect((await repo.list("2026-10-01", "2026-10-31"))[0].sourceChanged).toBe(true);
+  await expect(repo.save(note(), 1)).rejects.toThrow("原文已更新");
+});
+it("appends legacy summaries once and preserves associations through subsequent editor saves", async () => {
+  await repo.save(note(), 0);
+  await journal.save({ ...emptyJournal("month", "2026-10-01"), title: "旧标题", text: "旧正文" }, 0);
+  await repo.addMaterial("month", "2026-10-01", { type: "highlight", id: "h" }, 0);
+  await repo.addMaterial("month", "2026-10-01", { type: "highlight", id: "h" }, 0);
+  let month = (await journal.list()).find(r => r.kind === "month")!;
+  expect(month.text).toContain("旧标题\n\n旧正文"); expect(month.contentRevision).toBe(1);
+  await journal.saveContent("month", "2026-10-01", plainDocument("手写整理"), 1);
+  expect(await repo.materials("month", "2026-10-01")).toHaveLength(1);
+  expect((await repo.materials("month", "2026-10-01"))[0].sourceChanged).toBe(false);
+  await repo.addMaterial("year", "2026-01-01", { type: "month", id: "2026-10-01" }, 0);
+  await expect(repo.addMaterial("year", "2026-01-01", { type: "highlight", id: "h" }, 1)).rejects.toThrow("重叠");
+  month = (await journal.list()).find(r => r.kind === "month")!;
+  await journal.remove(month);
+  expect((await repo.materials("year", "2026-01-01"))[0].sourceDeleted).toBe(true);
+});
+it("rejects reverse overlaps and target conflicts without changing either body or associations", async () => {
+  await repo.save(note(), 0);
+  await repo.addMaterial("month", "2026-10-01", { type: "highlight", id: "h" }, 0);
+  await repo.addMaterial("year", "2026-01-01", { type: "highlight", id: "h" }, 0);
+  await expect(repo.addMaterial("year", "2026-01-01", { type: "month", id: "2026-10-01" }, 1)).rejects.toThrow("重叠");
+  await repo.save(note("h2"), 0);
+  const before = localStorage.getItem(key);
+  await expect(repo.addMaterial("month", "2026-10-01", { type: "highlight", id: "h2" }, 0)).rejects.toThrow("正文已更新");
+  expect(localStorage.getItem(key)).toBe(before);
+});
+it("keeps review text after deletion or trash while updating availability", async () => {
+  await journal.saveContent("day", "2026-10-18", plainDocument("原文"), 0);
+  await repo.save({ ...note(), sourceRevision: 1 }, 0);
+  await repo.addMaterial("month", "2026-10-01", { type: "highlight", id: "h" }, 0);
+  const before = (await journal.list()).find(r => r.kind === "month")!.text;
+  await journal.remove((await journal.list()).find(r => r.kind === "day")!);
+  expect(await repo.list("2026-10-01", "2026-10-31")).toEqual([]);
+  expect((await repo.list("2026-10-01", "2026-10-31", { includeUnavailable: true }))[0].sourceDeleted).toBe(true);
+  await repo.remove((await repo.list("2026-10-01", "2026-10-31", { includeUnavailable: true }))[0]);
+  expect(await repo.list("2026-10-01", "2026-10-31", { includeUnavailable: true })).toEqual([]);
+  expect((await repo.materials("month", "2026-10-01"))[0].sourceDeleted).toBe(true);
+  expect((await journal.list()).find(r => r.kind === "month")!.text).toBe(before);
+});
+it("single-key write failure preserves body, associations and original draft", async () => {
+  await repo.save(note(), 0);
+  localStorage.setItem("original-draft", "unsaved");
+  const before = localStorage.getItem(key);
+  const storage: Storage = { get length() { return localStorage.length; }, key: i => localStorage.key(i), getItem: k => localStorage.getItem(k), removeItem: k => localStorage.removeItem(k), clear: () => localStorage.clear(), setItem: () => { throw new Error("quota"); } };
+  const fail = new JournalReviewRepository(() => true, () => storage, () => key);
+  await expect(fail.addMaterial("month", "2026-10-01", { type: "highlight", id: "h" }, 0)).rejects.toThrow("quota");
+  expect(localStorage.getItem(key)).toBe(before); expect(await repo.materials("month", "2026-10-01")).toEqual([]); expect(localStorage.getItem("original-draft")).toBe("unsaved");
+});
+it("task snapshots require exact date, deduplicate, and report cross-day revocation", async () => {
+  const snapshot = completionSnapshot({ id: 1, createdAt: "2026-10-01T00:00:00Z", completedAt: "2026-10-18T02:00:00Z", status: "completed", title: "任务", notes: "" } as Task, "");
+  localStorage.setItem(`${key}.task-completions.v1`, JSON.stringify([snapshot]));
+  const task = { ...note(), sourceType: "task" as const, sourceId: snapshot.item.id };
+  await expect(repo.save({ ...task, date: "2026-10-19" }, 0)).rejects.toThrow("来源已删除");
+  await repo.save(task, 0);
+  await expect(repo.save({ ...task, id: "another" }, 0)).rejects.toThrow("已收录");
+  await repo.addMaterial("month", "2026-10-01", { type: "highlight", id: "h" }, 0);
+  snapshot.item.revokedAt = "2026-10-19T02:00:00Z"; snapshot.revokedDay = "2026-10-19";
+  localStorage.setItem(`${key}.task-completions.v1`, JSON.stringify([snapshot]));
+  expect(await repo.list("2026-10-01", "2026-10-31")).toEqual([]);
+  expect((await repo.materials("month", "2026-10-01"))[0].sourceRevoked).toBe(true);
+});
+it("copies only text from month images and enforces body limits transactionally", async () => {
+  await repo.save(note(), 0);
+  const month = { ...emptyJournal("month", "2026-10-01"), revision: 1, createdAt: "now", updatedAt: "now", deletedAt: null, contentRevision: 1, contentJson: JSON.stringify({ type: "doc", content: [{ type: "image", attrs: { src: "todoa-asset:77" } }, { type: "paragraph", content: [{ type: "text", text: "月工作" }] }] }) };
+  localStorage.setItem(key, JSON.stringify([month]));
+  await repo.addMaterial("year", "2026-01-01", { type: "month", id: "2026-10-01" }, 0);
+  expect((await journal.list()).find(r => r.kind === "year")!.contentJson).not.toContain("todoa-asset");
+  await journal.saveContent("month", "2026-10-01", plainDocument("字".repeat(200000)), 1);
+  const before = localStorage.getItem(key);
+  await expect(repo.addMaterial("month", "2026-10-01", { type: "highlight", id: "h" }, 2)).rejects.toThrow("长度限制");
+  expect(localStorage.getItem(key)).toBe(before);
+});

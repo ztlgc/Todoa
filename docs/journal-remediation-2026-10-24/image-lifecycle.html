@@ -1,0 +1,50 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>日记图片回收隔离验证</title>
+<style>body{font:16px/1.8 system-ui;padding:24px;max-width:1000px}button{padding:12px}pre{white-space:pre-wrap} .pass{color:seagreen}</style>
+<h1>日记图片生命周期验证</h1><p>仅允许在本次隔离预览端口 1436 使用；样本为虚构数据，不连接桌面数据库。</p>
+<button id="run">运行图片生命周期验证</button><pre id="result">等待执行</pre>
+<script type="module">
+import { journalRepository } from "/src/data/repositories/JournalRepository.ts";
+import { importBrowserJournalImage, readBrowserJournalImage } from "/src/data/browserJournalImages.ts";
+import { holdJournalImages, pruneUnusedJournalImages } from "/src/data/journalImageMaintenance.ts";
+const button=document.querySelector('#run'), output=document.querySelector('#result');
+if(location.port!=='1436') {button.disabled=true;output.textContent='请在隔离测试端口 1436 打开。';}
+button.onclick=async()=>{
+  button.disabled=true; const results=[]; let first,second; let key,badKey;
+  const check=(name,passed)=>{results.push({name,passed});output.textContent=JSON.stringify(results,null,2);if(!passed)throw Error(name);};
+  try{
+    check('真实浏览器提供跨标签页互斥',!!navigator.locks);
+    const records=await journalRepository.list();
+    let day=new Date('2090-01-01T12:00:00');
+    const format=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    while(records.some(r=>r.start===format(day)||r.start===format(new Date(day.getTime()+86400000))))day.setDate(day.getDate()+2);
+    const start=format(day);day.setDate(day.getDate()+1);const trashDate=format(day),ns=journalRepository.draftNamespace;
+    const blob=await (await fetch('/docs/audit-journal-2026-10-24/fixture.png')).blob();
+    const make=(date)=>importBrowserJournalImage(ns,'day',date,blob);
+    const doc=id=>({type:'doc',content:[{type:'image',attrs:{src:`todoa-asset:${id}`,alt:'隔离图片样本'}}]});
+    let ready1,ready2;const open1=new Promise(resolve=>ready1=resolve),open2=new Promise(resolve=>ready2=resolve);
+    first=holdJournalImages(ns,ready1,async()=>{}); second=holdJournalImages(ns,ready2,async()=>{});await Promise.all([open1,open2]);
+    const saved=await make(start),trashed=await make(trashDate),draft=await make(start),orphan=await make(start);
+    await journalRepository.saveContent('day',start,doc(saved),0);
+    await journalRepository.saveContent('day',trashDate,doc(trashed),0);
+    await journalRepository.remove((await journalRepository.list()).find(r=>r.start===trashDate));
+    key=`todoa.journal.content-draft.v1:${ns}:day:${start}`;localStorage.setItem(key,JSON.stringify({doc:doc(draft),revision:1}));
+    check('两个编辑器打开时跳过回收',await pruneUnusedJournalImages()===0);
+    check('撤销历史中仍可读取已移除图片',!!await readBrowserJournalImage(ns,'day',start,orphan));
+    first();first=null;await Promise.resolve();check('另一编辑器仍打开时保留资源',await pruneUnusedJournalImages()===0);
+    second();second=null;
+    await navigator.locks.request(`todoa:journal-images:${ns}`,{mode:'exclusive'},async()=>{});
+    await pruneUnusedJournalImages();
+    const missing=async(id,date=start)=>{try{await readBrowserJournalImage(ns,'day',date,id);return false}catch{return true}};
+    check('所有编辑器关闭后回收孤立图片',await missing(orphan));
+    check('保留已保存正文图片',!await missing(saved));
+    check('保留回收站图片',!await missing(trashed,trashDate));
+    check('保留未提交草稿图片',!await missing(draft));
+    localStorage.removeItem(key);await pruneUnusedJournalImages();check('舍弃草稿后回收其孤立图片',await missing(draft));
+    const guarded=await make(start);badKey=`todoa.journal.content-draft.v1:${ns}:day:2089-12-31`;localStorage.setItem(badKey,'broken');
+    let refused=false;try{await pruneUnusedJournalImages()}catch{refused=true}
+    check('坏草稿使清理安全中止',refused&&!await missing(guarded));
+    localStorage.removeItem(badKey);await pruneUnusedJournalImages();check('故障解除后可继续回收',await missing(guarded));
+    output.className='pass';output.textContent='全部通过\n'+JSON.stringify(results,null,2);
+  }catch(error){output.textContent+='\n失败：'+error.stack}finally{first?.();second?.();if(key)localStorage.removeItem(key);if(badKey)localStorage.removeItem(badKey)}
+};
+</script></html>

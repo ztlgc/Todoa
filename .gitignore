@@ -28,6 +28,7 @@ __pycache__/
 *.pyc
 
 # Editor directories and files
+.claude/
 .vscode/*
 !.vscode/extensions.json
 .idea

@@ -2,7 +2,13 @@ use chrono::{Datelike, Duration, NaiveDate};
 use serde_json::Value;
 use sqlx::{Row, Sqlite, SqlitePool, Transaction};
 
-fn period(kind: &str, start: &str) -> Result<String, &'static str> {
+// Same trailing whitespace set as JavaScript String.trimEnd (including BOM,
+// excluding NEXT LINE). Count the normalized UTF-16 projection on both sides.
+pub(super) fn normalized_text(text: &str) -> &str {
+    text.trim_end_matches(|c: char| matches!(c, '\u{0009}'..='\u{000d}' | '\u{0020}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}' | '\u{feff}'))
+}
+
+pub(super) fn period(kind: &str, start: &str) -> Result<String, &'static str> {
     let day = NaiveDate::parse_from_str(start, "%Y-%m-%d").map_err(|_| "INVALID_JOURNAL_DATE")?;
     if start.len() != 10 || day.year() < 1000 || day.to_string() != start {
         return Err("INVALID_JOURNAL_DATE");
@@ -32,7 +38,7 @@ fn period(kind: &str, start: &str) -> Result<String, &'static str> {
     Ok(end.to_string())
 }
 
-async fn ensure_record(
+pub(super) async fn ensure_record(
     tx: &mut Transaction<'_, Sqlite>,
     kind: &str,
     start: &str,
@@ -73,6 +79,7 @@ pub async fn save(
     let mut assets = Vec::new();
     let mut text = String::new();
     crate::commands::content::document(&doc, 0, &mut assets, &mut text)?;
+    let text = normalized_text(&text);
     if text.contains('\0') || text.encode_utf16().count() > 200_000 {
         return Err("CONTENT_TOO_LONG");
     }
@@ -99,7 +106,7 @@ pub async fn save(
     }
     let now = super::reminders::timestamp(super::reminders::now());
     sqlx::query("UPDATE journal_records SET body=?,content_json=?,content_revision=content_revision+1,revision=revision+1,updated_at=? WHERE kind=? AND period_start=?")
-        .bind(text.trim_end()).bind(json).bind(now).bind(kind).bind(start).execute(&mut *tx).await.map_err(|_|"JOURNAL_CONTENT_SAVE_FAILED")?;
+        .bind(text).bind(json).bind(now).bind(kind).bind(start).execute(&mut *tx).await.map_err(|_|"JOURNAL_CONTENT_SAVE_FAILED")?;
     tx.commit()
         .await
         .map_err(|_| "JOURNAL_CONTENT_SAVE_FAILED")?;
@@ -159,6 +166,48 @@ pub async fn read_image(
     .map_err(|_| "IMAGE_READ_FAILED")?
     .ok_or("IMAGE_NOT_FOUND")?;
     Ok((row.get("mime"), row.get("data")))
+}
+
+// Called only while the renderer holds the origin-wide exclusive maintenance
+// lock. Re-read every saved document in this transaction; never trust a stale
+// renderer projection, and preserve images owned by trashed journals too.
+pub async fn prune_images(
+    pool: &SqlitePool,
+    protected_assets: Vec<i64>,
+) -> Result<u64, &'static str> {
+    if protected_assets.len() > 100_000 || protected_assets.iter().any(|id| *id <= 0) {
+        return Err("INVALID_IMAGE_REFERENCES");
+    }
+    let mut tx = pool
+        .begin_with("BEGIN IMMEDIATE")
+        .await
+        .map_err(|_| "IMAGE_CLEANUP_FAILED")?;
+    let docs: Vec<String> = sqlx::query_scalar(
+        "SELECT content_json FROM journal_records WHERE content_json IS NOT NULL",
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|_| "IMAGE_CLEANUP_FAILED")?;
+    let mut keep = protected_assets;
+    for json in docs {
+        let doc: Value = serde_json::from_str(&json).map_err(|_| "INVALID_CONTENT")?;
+        if doc["type"] != "doc" {
+            return Err("INVALID_CONTENT");
+        }
+        crate::commands::content::document(&doc, 0, &mut keep, &mut String::new())?;
+    }
+    keep.sort_unstable();
+    keep.dedup();
+    let references = serde_json::to_string(&keep).map_err(|_| "IMAGE_CLEANUP_FAILED")?;
+    let removed =
+        sqlx::query("DELETE FROM journal_assets WHERE id NOT IN (SELECT value FROM json_each(?))")
+            .bind(references)
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| "IMAGE_CLEANUP_FAILED")?
+            .rows_affected();
+    tx.commit().await.map_err(|_| "IMAGE_CLEANUP_FAILED")?;
+    Ok(removed)
 }
 
 #[cfg(test)]
