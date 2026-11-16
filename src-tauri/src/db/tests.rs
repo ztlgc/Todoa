@@ -89,6 +89,13 @@ fn current_migrator() -> Migrator {
                 include_str!("../../migrations/0009_journal_review.sql").into(),
                 false,
             ),
+            SqlxMigration::new(
+                10,
+                "recurrence_progress".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../migrations/0010_recurrence_progress.sql").into(),
+                false,
+            ),
         ]),
         ..Migrator::DEFAULT
     }
@@ -107,6 +114,43 @@ async fn database() -> (TempDir, SqlitePool) {
         .await
         .unwrap();
     (dir, pool)
+}
+
+#[test]
+fn upgrading_schema_nine_backfills_only_completed_recurrence_progress() {
+    tauri::async_runtime::block_on(async {
+        let (dir, pool) = database().await;
+        let mut previous = current_migrator();
+        previous.migrations.to_mut().truncate(9);
+        previous.run(&pool).await.unwrap();
+        sqlx::query("INSERT INTO tasks(id,title,status,completed_at,due_at,repeat_rule,created_at,updated_at) VALUES(1,'已完成重复任务','completed',?,'2099-11-16T01:00:00.000Z','day:1',?,?),(2,'待办重复任务','todo',NULL,'2099-11-17T01:00:00.000Z','day:1',?,?)")
+            .bind(TIME).bind(TIME).bind(TIME).bind(TIME).bind(TIME).execute(&pool).await.unwrap();
+        current_migrator().run(&pool).await.unwrap();
+        verify_pool(&pool, &dir.path().join("todo.db"))
+            .await
+            .unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT task_id FROM task_recurrence_progress")
+                .fetch_all(&pool)
+                .await
+                .unwrap(),
+            vec![1]
+        );
+        crate::services::reminders::update_status(&pool, 1, "todo", 1_791_072_000_000)
+            .await
+            .unwrap();
+        crate::services::reminders::update_status(&pool, 1, "completed", 1_791_072_001_000)
+            .await
+            .unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM tasks")
+                .fetch_one(&pool)
+                .await
+                .unwrap(),
+            2
+        );
+        pool.close().await;
+    });
 }
 
 async fn install(pool: &SqlitePool) {

@@ -23,7 +23,10 @@ describe("natural task input", () => {
 
   it("recognizes recurring tasks and keeps unsupported or invalid text", () => {
     expect(parseNaturalTaskInput("每天写日记", now)).toMatchObject({ repeatRule: "day:1", repeatText: "每天", title: "写日记" });
-    expect(parseNaturalTaskInput("每周二 18:00 健身", now)).toMatchObject({ dueAt: null, repeatRule: null, title: "每周二 18:00 健身" });
+    const weekly = parseNaturalTaskInput("每周二 18:00 健身", now);
+    expect(weekly.title).toBe("健身");
+    expect(new Date(weekly.dueAt!).getDay()).toBe(2);
+    expect(new Date(weekly.dueAt!).getHours()).toBe(18);
     expect(parseNaturalTaskInput("2026-02-30 交报告", now).dueAt).toBeNull();
     expect(parseNaturalTaskInput("2026-02-30 交报告", now).title).toBe("2026-02-30 交报告");
   });

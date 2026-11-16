@@ -155,7 +155,7 @@ export function JournalNoteEditor({ kind, start, record, onDirty, onBusy, onFlus
     }}>舍弃草稿</Button></div>}
     {imagesReady ? <ContentEditor initial={current.current} imageStore={images} label={label} editable={!recovery} showTools={tools} onToolsClosed={() => setTools(false)} onChange={changed}
       onEditor={value => { editor.current = value; if (JSON.stringify(value.getJSON()) !== JSON.stringify(current.current)) value.commands.setContent(current.current, { emitUpdate: false }); }} onComposition={value => { composing.current = value; if (!value) { changed(editor.current?.getJSON() ?? current.current); callbacks.current.onReady?.(); } }}
-      onBusy={value => { importing.current = value; callbacks.current.onBusy(value); if (!value) { schedule(); callbacks.current.onReady?.(); } }} /> : <p role="status">正在读取编辑内容…</p>}
+      onBusy={value => { importing.current = value; callbacks.current.onBusy(value); if (!value) { schedule(); callbacks.current.onReady?.(); } }} /> : <p className="daily-editor-loading" role="status">正在读取编辑内容…</p>}
     {error && <div role="alert" className="daily-error"><p>{error}</p><Button size="sm" variant="outline" onClick={() => { void flush(); }}>重试保存</Button><Button size="sm" variant="ghost" onClick={() => {
       void journalRepository.get(kind, start).then(saved => {
         if (!persist()) return;

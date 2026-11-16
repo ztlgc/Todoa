@@ -21,7 +21,17 @@ export interface RecurrenceRule {
 }
 export const dateKey = (d: Date) => `${String(d.getFullYear()).padStart(4, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const dayDate = (s: string) => new Date(`${s}T12:00:00`);
-export const validRecurrenceDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && s.slice(0, 4) !== "0000" && Number.isFinite(dayDate(s).getTime()) && dateKey(dayDate(s)) === s;
+export const validRecurrenceDate = (s: unknown): s is string => {
+  if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s) || s.startsWith("0000")) return false;
+  const date = new Date(`${s}T12:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === s;
+};
+export function validLegacyRepeatRule(rule: string): boolean {
+  if (!/^(?:(?:day|week|month|year):[1-9]\d{0,2}|week-monday|weekday|weekend|month-last|month-day:(?:[1-9]|[12]\d|3[01])|year-date:(?:[1-9]|1[0-2]):(?:[1-9]|[12]\d|3[01]))$/.test(rule)) return false;
+  if (!rule.startsWith("year-date:")) return true;
+  const [, month, day] = rule.split(":");
+  return validRecurrenceDate(`2024-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+}
 const integer = (n: unknown, min: number, max: number): n is number => typeof n === "number" && Number.isSafeInteger(n) && n >= min && n <= max;
 const numbers = (a: unknown, min: number, max: number, last = false): a is number[] => Array.isArray(a) && a.length > 0 && a.length <= max - min + 1 + Number(last) && new Set(a).size === a.length && a.every(n => integer(n, min, max) || (last && n === -1));
 export function isRecurrenceRule(value: unknown): value is RecurrenceRule {
@@ -94,7 +104,8 @@ export function nextRecurrenceDue(prior: string, r: RecurrenceRule, after = new 
   const accept = (d: Date): string | null => {
     if (d.getFullYear() > 9999 || d.getFullYear() < 1 || (r.basis !== "completion" && dateKey(d) < r.anchor) || (r.end === "date" && dateKey(d) > r.endDate!)) return null;
     d.setHours(clock.getHours(),clock.getMinutes(),clock.getSeconds(),clock.getMilliseconds());
-    return d > cutoff ? d.toISOString() : null;
+    if (d.getFullYear() > 9999 || d.getFullYear() < 1 || (r.end === "date" && dateKey(d) > r.endDate!)) return null;
+    return d > cutoff && d.getUTCFullYear() >= 1 && d.getUTCFullYear() <= 9999 ? d.toISOString() : null;
   };
   if (r.basis === "completion") {
     const d = new Date(after);
@@ -140,6 +151,7 @@ export function advanceRecurrenceRule(rule: string): string {
 export function previewRecurrence(r: RecurrenceRule, time = "09:00"): string[] {
   if (!isRecurrenceRule(r)) return [];
   const first = new Date(`${r.anchor}T${time || "09:00"}`);
+  if (!Number.isFinite(first.getTime()) || dateKey(first) !== r.anchor) return [];
   const dates: string[] = [];
   let prior=first.toISOString(), current=r;
   // The selected deadline is occurrence 1; preview generated occurrences after it.

@@ -12,6 +12,7 @@ import { journalRepository } from "./repositories/JournalRepository";
 const state = {
   tasks: [] as Task[], lists: [] as TaskList[], tags: [] as Tag[], taskTags: [] as TaskTag[], reminders: [] as Reminder[],
   generatedReminderIds: new Set<number>(),
+  recurrenceSources: new Set<number>(),
   nextTask: 1, nextList: 1, nextTag: 1, nextReminder: 1,
 };
 const stamp = () => new Date().toISOString();
@@ -50,11 +51,20 @@ export const browserTaskRepository = {
     const task = state.tasks.find((item) => item.id === parseTaskId(id));
     if (!task || task.deletedAt) throw new Error("任务不存在");
     const parsed = parseUpdateTaskInput(input);
-    const changedDue = (parsed.dueAt !== undefined && parsed.dueAt !== task.dueAt) || parsed.reminderOffsets !== undefined;
+    const next = { ...task, ...parsed };
+    if (next.dueAt && next.dueDate) throw new Error("日期与时间不能重复设置。");
+    if (!next.dueAt && !next.dueDate) {
+      if (parsed.repeatRule) throw new Error("重复任务需要开始日期。");
+      next.repeatRule = null;
+    }
+    if (!next.dueAt) next.reminderOffsets = [];
+    const dueChanged = next.dueAt !== task.dueAt;
+    const changedDue = dueChanged || JSON.stringify([...(next.reminderOffsets ?? [])].sort((a, b) => a - b)) !== JSON.stringify([...(task.reminderOffsets ?? [])].sort((a, b) => a - b));
+    if (parsed.reminderOffsets && next.dueAt && parsed.reminderOffsets.some(offset => (dueChanged || !task.reminderOffsets?.includes(offset)) && Date.parse(next.dueAt!) - offset * 60000 <= Date.now())) throw new Error("提醒时间已过去，请调整日期或时间。");
     if (changedDue) {
       state.reminders = state.reminders.filter(reminder => reminder.taskId !== task.id || reminder.triggeredAt !== null || !state.generatedReminderIds.has(reminder.id));
     }
-    Object.assign(task, parsed, { updatedAt: stamp() });
+    Object.assign(task, next, { updatedAt: stamp() });
     if (changedDue) {
       if (!task.dueAt) { if (!task.dueDate) task.repeatRule = null; task.reminderOffsets = []; }
       else if (task.status === "todo") {
@@ -77,10 +87,20 @@ export const browserTaskRepository = {
     if (task.status === nextStatus) return;
     if (isBrowserDebug()) journalRepository.recordBrowserTaskStatus(task, nextStatus, now, state.lists.find(list => list.id === task.listId)?.name ?? "");
     task.status = nextStatus; task.completedAt = nextStatus === "completed" ? now : null; task.updatedAt = now;
+    if (nextStatus === "todo" && task.dueAt) {
+      for (const offset of task.reminderOffsets ?? []) {
+        const remindAt = new Date(Date.parse(task.dueAt) - offset * 60000).toISOString();
+        if (Date.parse(remindAt) <= Date.now() || state.reminders.some(reminder => reminder.taskId === task.id && reminder.remindAt === remindAt)) continue;
+        const id = state.nextReminder++;
+        state.reminders.push({ id, taskId: task.id, remindAt, triggeredAt: null });
+        state.generatedReminderIds.add(id);
+      }
+    }
     if (status === "completed") {
       state.reminders = state.reminders.filter(reminder => reminder.taskId !== task.id || reminder.triggeredAt !== null);
-      if (wasTodo && task.repeatRule && (task.dueAt || task.dueDate)) {
+      if (wasTodo && task.repeatRule && (task.dueAt || task.dueDate) && !state.recurrenceSources.has(task.id)) {
         const dueAt = nextRepeatDue(task.dueAt ?? new Date(task.dueDate+"T12:00:00").toISOString(), task.repeatRule);
+        state.recurrenceSources.add(task.id);
         if (dueAt) {
           const next: Task = { ...task, repeatRule: advanceRecurrenceRule(task.repeatRule), id: state.nextTask++, dueAt: task.dueDate ? null : dueAt, dueDate: task.dueDate ? (()=>{const d=new Date(dueAt);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})() : null, contentRevision: 0, status: "todo", completedAt: null, createdAt: stamp(), updatedAt: stamp() };
           state.tasks.push(next);

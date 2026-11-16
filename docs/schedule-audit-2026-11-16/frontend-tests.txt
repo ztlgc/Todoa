@@ -1,0 +1,15 @@
+
+ RUN  v5.0.3 E:/2025Code/Todoa
+
+(node:12856) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21044) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  51 passed (51)
+      Tests  429 passed (429)
+   Start at  11:44:40
+   Duration  75.52s (environment 38%, tests 37%, import 22%, transform 3%)
+
+    Isolate  51 workers spawned · ~1.27s startup each (spawn + environment, per file)
+             at least ~31.10s faster with isolate: false — reuses workers across files instead of one per file

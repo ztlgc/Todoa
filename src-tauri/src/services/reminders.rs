@@ -101,6 +101,32 @@ pub async fn update_status(
     if result.rows_affected() != 1 {
         return Err("TASK_NOT_FOUND");
     }
+    if !was_todo && status == "todo" {
+        let schedule = sqlx::query("SELECT due_at,reminder_offsets FROM tasks WHERE id=?")
+            .bind(task_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|_| "TASK_STATUS_FAILED")?;
+        if let Some(due) = schedule.get::<Option<String>, _>("due_at") {
+            let due = DateTime::parse_from_rfc3339(&due).map_err(|_| "INVALID_DUE_TIME")?;
+            let offsets: Vec<i64> =
+                serde_json::from_str(&schedule.get::<String, _>("reminder_offsets"))
+                    .map_err(|_| "INVALID_REMINDER_RULE")?;
+            if offsets.len() > 16 || offsets.iter().any(|offset| !(0..=525600).contains(offset)) {
+                return Err("INVALID_REMINDER_RULE");
+            }
+            for offset in offsets {
+                let remind = due - chrono::Duration::minutes(offset);
+                if remind.timestamp_millis() <= now {
+                    continue;
+                }
+                let time = timestamp(remind.timestamp_millis());
+                sqlx::query("INSERT INTO reminders(task_id,remind_at,generated,created_at,updated_at) SELECT ?,?,1,?,? WHERE NOT EXISTS(SELECT 1 FROM reminders WHERE task_id=? AND remind_at=?)")
+                    .bind(task_id).bind(&time).bind(&stamp).bind(&stamp).bind(task_id).bind(&time)
+                    .execute(&mut *tx).await.map_err(|_| "REMINDER_CREATE_FAILED")?;
+            }
+        }
+    }
     if status == "completed" {
         sqlx::query("DELETE FROM reminders WHERE task_id=? AND triggered_at IS NULL")
             .bind(task_id)

@@ -17,10 +17,10 @@ import type { Task, UpdateTaskInput } from "@/domain/task";
 import { fromLocalInput, toLocalInput } from "@/domain/taskDates";
 import { repeatRuleLabel } from "@/domain/naturalTaskInput";
 import { CustomRepeatDialog } from "./CustomRepeatDialog";
-import { isRecurrenceRule, parseRecurrence } from "@/domain/recurrence";
+import { dateKey, isRecurrenceRule, parseRecurrence } from "@/domain/recurrence";
 
-const key = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const key = dateKey;
+const monthStart = (date: Date, offset = 0) => { const next = new Date(date); next.setDate(1); next.setMonth(next.getMonth() + offset); return next; };
 const reminderPresets = [0, 5, 60, 1440, 4320];
 const reminderLabel = (minutes: number) =>
   minutes === 0
@@ -67,12 +67,11 @@ export function TaskSchedulePicker({
   const [customRepeatOpen, setCustomRepeatOpen] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState<string>();
-  const first = new Date(month.getFullYear(), month.getMonth(), 1, 12),
+  const first = monthStart(month),
     start = (first.getDay() + 6) % 7;
   const cells = Array.from(
     { length: 42 },
-    (_, i) =>
-      new Date(month.getFullYear(), month.getMonth(), i - start + 1, 12),
+    (_, index) => { const day = new Date(first); day.setDate(index - start + 1); return day; },
   );
   const zone = useState(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -104,7 +103,7 @@ export function TaskSchedulePicker({
       if (
         !clear &&
         dueAt &&
-        offsets.some((n) => Date.parse(dueAt) - n * 60000 <= Date.now())
+        offsets.some((n) => (dueAt !== task.dueAt || !task.reminderOffsets?.includes(n)) && Date.parse(dueAt) - n * 60000 <= Date.now())
       )
         throw new Error("提醒时间已过去，请调整日期或时间。");
       await onSave({
@@ -168,11 +167,9 @@ export function TaskSchedulePicker({
               size="icon-sm"
               variant="ghost"
               aria-label="上个月"
-              disabled={busy}
+              disabled={busy || (month.getFullYear() <= 1 && month.getMonth() === 0)}
               onClick={() =>
-                setMonth(
-                  new Date(month.getFullYear(), month.getMonth() - 1, 1, 12),
-                )
+                setMonth(monthStart(month, -1))
               }
             >
               <ChevronLeft />
@@ -181,11 +178,9 @@ export function TaskSchedulePicker({
               size="icon-sm"
               variant="ghost"
               aria-label="下个月"
-              disabled={busy}
+              disabled={busy || (month.getFullYear() >= 9999 && month.getMonth() === 11)}
               onClick={() =>
-                setMonth(
-                  new Date(month.getFullYear(), month.getMonth() + 1, 1, 12),
-                )
+                setMonth(monthStart(month, 1))
               }
             >
               <ChevronRight />
@@ -202,10 +197,10 @@ export function TaskSchedulePicker({
             <button
               key={key(d)}
               type="button"
-              disabled={busy}
+              disabled={busy || d.getFullYear() < 1 || d.getFullYear() > 9999}
               aria-label={key(d)}
               aria-pressed={date === key(d)}
-              onClick={() => setDate(key(d))}
+              onClick={() => { setDate(key(d)); setMonth(d); }}
               className={`mx-auto size-6 rounded-full hover:bg-accent ${date === key(d) ? "bg-primary text-primary-foreground hover:bg-primary" : key(d) === key(new Date()) ? "bg-secondary font-semibold" : d.getMonth() !== month.getMonth() ? "text-muted-foreground/50" : ""}`}
             >
               {d.getDate()}

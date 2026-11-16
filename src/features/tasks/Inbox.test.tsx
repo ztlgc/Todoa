@@ -49,6 +49,15 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear()); });
 
+it("allows keeping the original title when only a recurring phrase was recognized", async () => {
+  renderInbox();
+  await screen.findByText("收件箱为空");
+  input("每天复盘");
+  fireEvent.click(screen.getByRole("button", { name: "保留原文" }));
+  submit();
+  await waitFor(() => expect(taskRepository.create).toHaveBeenCalledWith({ title: "每天复盘" }));
+});
+
 it("renders and toggles real subtask checkboxes without duplicating projected notes", async () => {
   const doc = { type: "doc", attrs: { subtasks: [
     { id: "one", title: "核对资料", completed: true, dueDate: "2026-10-20" },

@@ -7,7 +7,7 @@ use tauri_plugin_sql::{DbInstances, DbPool, Migration, MigrationKind};
 pub mod backup;
 
 pub const DATABASE_URL: &str = "sqlite:todo.db";
-pub const SCHEMA_VERSION: i64 = 9;
+pub const SCHEMA_VERSION: i64 = 10;
 const APPLICATION_ID: i64 = 0x5754_4431;
 
 #[derive(Clone, Copy)]
@@ -83,6 +83,12 @@ pub fn plugin<R: Runtime>(
                     version: 9,
                     description: "journal_review",
                     sql: include_str!("../../migrations/0009_journal_review.sql"),
+                    kind: MigrationKind::Up,
+                },
+                Migration {
+                    version: 10,
+                    description: "recurrence_progress",
+                    sql: include_str!("../../migrations/0010_recurrence_progress.sql"),
                     kind: MigrationKind::Up,
                 },
             ],
@@ -261,6 +267,7 @@ async fn verify_pool(pool: &SqlitePool, expected_path: &Path) -> Result<(), &'st
         ("table", "tags"),
         ("table", "task_tags"),
         ("table", "reminders"),
+        ("table", "task_recurrence_progress"),
         ("table", "settings"),
         ("table", "journal_records"),
         ("table", "journal_task_completions"),

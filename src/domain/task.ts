@@ -1,6 +1,6 @@
 import { parseListId } from "./list";
 import { parseTagId } from "./tag";
-import { parseRecurrence } from "./recurrence";
+import { parseRecurrence, validLegacyRepeatRule, validRecurrenceDate } from "./recurrence";
 
 export type TaskStatus = "todo" | "completed";
 export type TaskPriority = "high" | "medium" | "low" | "none";
@@ -146,12 +146,13 @@ export function parseCreateTaskInput(value: CreateTaskInput): { title: string; n
     throw new TaskValidationError("任务输入无效");
   }
   const repeatRule = value.repeatRule ?? null;
-  if (repeatRule !== null && !parseRecurrence(repeatRule) && !/^(?:day|week|month|year):[1-9]\d{0,2}$|^week-monday$|^weekday$|^weekend$|^month-last$|^month-day:(?:[1-9]|[12]\d|3[01])$|^year-date:(?:[1-9]|1[0-2]):(?:[1-9]|[12]\d|3[01])$/.test(repeatRule)) throw new TaskValidationError("重复规则无效");
+  if (repeatRule !== null && !parseRecurrence(repeatRule) && !validLegacyRepeatRule(repeatRule)) throw new TaskValidationError("重复规则无效");
   const remindAt = (value.remindAt ?? []).map(parseTaskTime);
   const reminderOffsets = value.reminderOffsets ?? [];
-  if (remindAt.length > 16 || reminderOffsets.length > 16 || reminderOffsets.some(offset => !Number.isSafeInteger(offset) || offset < 0 || offset > 525600)) throw new TaskValidationError("提醒规则无效");
+  if (remindAt.length > 16 || reminderOffsets.length > 16 || new Set(reminderOffsets).size !== reminderOffsets.length || reminderOffsets.some(offset => !Number.isSafeInteger(offset) || offset < 0 || offset > 525600)) throw new TaskValidationError("提醒规则无效");
   if (remindAt.length !== reminderOffsets.length) throw new TaskValidationError("提醒时间与规则不一致");
   if (repeatRule && !value.dueAt) throw new TaskValidationError("重复任务需要开始时间");
+  if (remindAt.length && (!value.dueAt || remindAt.some((time, index) => Date.parse(time) !== Date.parse(parseTaskTime(value.dueAt)) - reminderOffsets[index] * 60000))) throw new TaskValidationError("提醒时间与规则不一致");
   return {
     title: parseTaskTitle(value.title),
     listId: value.listId == null ? null : parseListId(value.listId),
@@ -176,7 +177,7 @@ export function parseUpdateTaskInput(value: UpdateTaskInput): UpdateTaskInput {
     result.repeatRule = value.repeatRule;
   }
   if (value.dueDate !== undefined) {
-    if (value.dueDate !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(value.dueDate) || new Date(value.dueDate+"T12:00:00Z").toISOString().slice(0,10) !== value.dueDate)) throw new TaskValidationError("日期无效");
+    if (value.dueDate !== null && !validRecurrenceDate(value.dueDate)) throw new TaskValidationError("日期无效");
     result.dueDate = value.dueDate;
   }
   if (value.reminderOffsets !== undefined) {

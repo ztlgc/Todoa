@@ -92,3 +92,63 @@ it("clearing recurrence preserves the deadline and reminders and stops subsequen
   await browserTaskRepository.updateStatus(task.id, "completed");
   expect((await browserTaskRepository.list()).length).toBe(before);
 });
+
+it("rejects invalid merged schedules without changing the task or its reminders", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 10, 16, 9));
+  const dueAt = new Date(2026, 10, 17, 9).toISOString();
+  const task = await browserTaskRepository.create({ title: "排期原子更新", dueAt, remindAt: [dueAt], reminderOffsets: [0] });
+  const before = { ...task };
+  const reminders = await browserReminderRepository.list(task.id);
+  await expect(browserTaskRepository.update(task.id, { dueDate: "2026-11-18" })).rejects.toThrow();
+  expect(await browserTaskRepository.getById(task.id)).toEqual(before);
+  expect(await browserReminderRepository.list(task.id)).toEqual(reminders);
+  await expect(browserTaskRepository.update(task.id, { dueAt: new Date(2026, 10, 16, 8).toISOString(), reminderOffsets: [0] })).rejects.toThrow();
+  expect(await browserTaskRepository.getById(task.id)).toEqual(before);
+  expect(await browserReminderRepository.list(task.id)).toEqual(reminders);
+});
+
+it("does not duplicate a recurrence successor after undo and recompletion", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 10, 16, 9));
+  const task = await browserTaskRepository.create({ title: "撤销后再次完成", dueAt: new Date(2026, 10, 16, 10).toISOString(), repeatRule: "day:1" });
+  await browserTaskRepository.updateStatus(task.id, "completed");
+  await browserTaskRepository.updateStatus(task.id, "todo");
+  await browserTaskRepository.updateStatus(task.id, "completed");
+  expect((await browserTaskRepository.list({ status: "todo" })).filter(item => item.title === task.title)).toHaveLength(1);
+});
+
+it("keeps existing reminders when a past schedule is confirmed unchanged", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 10, 16, 9));
+  const dueAt = new Date(2026, 10, 16, 10).toISOString();
+  const task = await browserTaskRepository.create({ title: "过期提醒不重建", dueAt, remindAt: [dueAt], reminderOffsets: [0] });
+  const reminders = await browserReminderRepository.list(task.id);
+  vi.setSystemTime(new Date(2026, 10, 16, 11));
+  await browserTaskRepository.update(task.id, { dueAt, repeatRule: null, reminderOffsets: [0] });
+  expect(await browserReminderRepository.list(task.id)).toEqual(reminders);
+  await expect(browserTaskRepository.update(task.id, { reminderOffsets: [0, 5] })).rejects.toThrow();
+  expect(await browserReminderRepository.list(task.id)).toEqual(reminders);
+  await browserTaskRepository.update(task.id, { dueAt: null });
+  expect(await browserTaskRepository.getById(task.id)).toMatchObject({ dueAt: null, repeatRule: null, reminderOffsets: [] });
+  expect(await browserReminderRepository.list(task.id)).toEqual([]);
+});
+
+it("restores only future scheduled reminders on undo without duplicating reminders or recurrence", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 10, 16, 9));
+  const dueAt = new Date(2026, 10, 16, 11).toISOString();
+  const earlier = new Date(2026, 10, 16, 10).toISOString();
+  const task = await browserTaskRepository.create({ title: "撤销恢复提醒", dueAt, repeatRule: "day:1", remindAt: [dueAt, earlier], reminderOffsets: [0, 60] });
+  await browserTaskRepository.updateStatus(task.id, "completed");
+  expect(await browserReminderRepository.list(task.id)).toEqual([]);
+  vi.setSystemTime(new Date(2026, 10, 16, 10, 30));
+  await browserTaskRepository.updateStatus(task.id, "todo");
+  await browserTaskRepository.updateStatus(task.id, "todo");
+  expect(await browserReminderRepository.list(task.id)).toMatchObject([{ remindAt: dueAt }]);
+  await browserTaskRepository.updateStatus(task.id, "completed");
+  expect((await browserTaskRepository.list()).filter(item => item.title === task.title)).toHaveLength(2);
+  vi.setSystemTime(new Date(2026, 10, 16, 12));
+  await browserTaskRepository.updateStatus(task.id, "todo");
+  expect(await browserReminderRepository.list(task.id)).toEqual([]);
+});

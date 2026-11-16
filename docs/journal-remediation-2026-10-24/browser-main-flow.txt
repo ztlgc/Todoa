@@ -1,6 +1,6 @@
 - main:
   - paragraph: Todoa
-  - paragraph: 对公客户经理的客户跟进与工作安排。
+  - paragraph: 日常任务跟进与工作安排。
   - status: 浏览器调试 · 临时数据
   - button "快速添加"
   - navigation "一级导航":
@@ -23,8 +23,8 @@
       - button "回收站"
       - button "移入回收站" [disabled]
     - region "日记月历":
-      - strong: 客户工作日记
-      - generic: 对公客户经理工作台
+      - strong: 工作日记
+      - generic: 工作台
       - heading "2026年 10月" [level=2]
       - button "日历上个月":
       - button "日历回到今天": 今天

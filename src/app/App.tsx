@@ -14,7 +14,7 @@ function App() {
         <LifecycleGate><DatabaseGate>
           <MainQueryProvider>
             <JournalAutomation />
-            <header className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4"><div><p className="text-xl font-semibold tracking-tight">Todoa</p><p className="text-xs text-muted-foreground">对公客户经理的客户跟进与工作安排。</p></div><QuickAddLauncher /></header>
+            <header className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4"><div><p className="text-xl font-semibold tracking-tight">Todoa</p><p className="text-xs text-muted-foreground">本地待办、工作日记与日程安排。</p></div><QuickAddLauncher /></header>
             <ListsWorkspace />
           </MainQueryProvider>
         </DatabaseGate></LifecycleGate>

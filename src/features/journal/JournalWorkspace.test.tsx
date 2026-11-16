@@ -64,7 +64,7 @@ it("restores calendar day markers and flushes notes before selecting another day
   // Also works on the first day of a month, when yesterday is in the previous month.
   if (yesterday.slice(0, 7) !== today().slice(0, 7)) fireEvent.click(calendar.getByRole("button", { name: "日历上个月" }));
   const day = calendar.getByRole("button", { name: `查看${yesterday}日记` });
-  expect(day.getAttribute("data-has-entry")).toBe("true"); fireEvent.click(day);
+  await waitFor(() => expect(day.getAttribute("data-has-entry")).toBe("true")); fireEvent.click(day);
   await waitFor(() => expect((screen.getByRole("textbox", { name: "日记工作记录" }) as HTMLTextAreaElement).value).toBe("昨天的客户沟通"));
   expect((await journalRepository.list()).find(value => value.start === today())?.text).toBe("月历切换前的最后输入");
   expect(calendar.getByRole("button", { name: `查看${yesterday}日记` }).getAttribute("aria-pressed")).toBe("true");
@@ -128,9 +128,11 @@ it("opens a legacy monthly summary without replacing it and preserves daily rich
   setup(); await screen.findByRole("textbox", { name: "日记工作记录" });
   fireEvent.change(screen.getByLabelText("选择日记日期"), { target: { value: "2026-09-01" } });
   await waitFor(() => expect((screen.getByLabelText("选择日记日期") as HTMLInputElement).value).toBe("2026-09-01"));
+  await screen.findByRole("textbox", { name: "日记工作记录" });
   fireEvent.click(screen.getByRole("button", { name: "月度回顾" }));
   await waitFor(() => expect((screen.getByRole("textbox", { name: "回顾正文" }) as HTMLTextAreaElement).value).toContain("旧总结正文"));
   fireEvent.click(screen.getByRole("button", { name: /^每日$/ }));
+  await screen.findByRole("textbox", { name: "日记工作记录" });
   fireEvent.click(await screen.findByRole("button", { name: /^今天$/ }));
   await waitFor(() => expect((screen.getByRole("textbox", { name: "日记工作记录" }) as HTMLTextAreaElement).value).toBe("完整格式补充"));
   fireEvent.click(screen.getByRole("button", { name: "日记更多操作" })); fireEvent.click(screen.getByRole("button", { name: "移入回收站" }));
@@ -150,6 +152,7 @@ it("shows daily journals for a selected week while excluding trash and legacy su
   setup(); await screen.findByRole("textbox", { name: "日记工作记录" });
   fireEvent.change(screen.getByLabelText("选择日记日期"), { target: { value: "2026-10-19" } });
   await waitFor(() => expect((screen.getByLabelText("选择日记日期") as HTMLInputElement).value).toBe("2026-10-19"));
+  await screen.findByRole("textbox", { name: "日记工作记录" });
   fireEvent.click(screen.getByRole("button", { name: "查看本周记录" }));
   await screen.findByRole("heading", { name: "本周工作记录" });
   expect(screen.getByText("2026-10-19 — 2026-10-25")).toBeTruthy();
@@ -171,11 +174,46 @@ it("preserves the daily editor when switching to a review fails to save, then op
   expect((await journalRepository.list())[0].text).toBe("切换范围前的最后补充");
 });
 
+it("keeps the current editor mounted while a review loads and saves edits made during the wait", async () => {
+  setup(); const input = await screen.findByRole("textbox", { name: "日记工作记录" });
+  const original = journalRepository.get.bind(journalRepository);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const get = vi.spyOn(journalRepository, "get").mockImplementation(async (kind, start) => {
+    if (kind === "month") await gate;
+    return original(kind, start);
+  });
+  fireEvent.click(screen.getByRole("button", { name: "月度回顾" }));
+  await waitFor(() => expect(get).toHaveBeenCalledWith("month", expect.any(String)));
+  expect(screen.getByRole("textbox", { name: "日记工作记录" })).toBe(input);
+  expect(screen.queryByText("正在读取记录…")).toBeNull();
+  fireEvent.change(input, { target: { value: "等待回顾载入时继续补充" } });
+  await act(async () => { release(); });
+  expect(await screen.findByRole("textbox", { name: "回顾正文" })).toBeTruthy();
+  expect((await journalRepository.list()).find(value => value.start === today())?.text).toBe("等待回顾载入时继续补充");
+});
+
+it("retains the current page after a target read fails and permits retry", async () => {
+  setup(); const input = await screen.findByRole("textbox", { name: "日记工作记录" });
+  const original = journalRepository.get.bind(journalRepository);
+  const get = vi.spyOn(journalRepository, "get").mockImplementation(async (kind, start) => {
+    if (kind === "month") throw new Error("读取失败");
+    return original(kind, start);
+  });
+  fireEvent.click(screen.getByRole("button", { name: "月度回顾" }));
+  expect(await screen.findByText("记录读取失败，请重试切换。当前内容已保留。")).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: "日记工作记录" })).toBe(input);
+  get.mockImplementation(original);
+  fireEvent.click(screen.getByRole("button", { name: "月度回顾" }));
+  expect(await screen.findByRole("textbox", { name: "回顾正文" })).toBeTruthy();
+});
+
 it("moves between weeks and opens a listed date back in the daily editor", async () => {
   await journalRepository.saveContent("day", "2026-10-18", plainDocument("上周日补充内容"), 0);
   setup(); await screen.findByRole("textbox", { name: "日记工作记录" });
   fireEvent.change(screen.getByLabelText("选择日记日期"), { target: { value: "2026-10-19" } });
   await waitFor(() => expect((screen.getByLabelText("选择日记日期") as HTMLInputElement).value).toBe("2026-10-19"));
+  await screen.findByRole("textbox", { name: "日记工作记录" });
   fireEvent.click(screen.getByRole("button", { name: "查看本周记录" })); await screen.findByRole("heading", { name: "本周工作记录" });
   fireEvent.click(screen.getByRole("button", { name: "上一周" }));
   expect(await screen.findByText("2026-10-12 — 2026-10-18")).toBeTruthy(); expect(await screen.findByText("上周日补充内容")).toBeTruthy();

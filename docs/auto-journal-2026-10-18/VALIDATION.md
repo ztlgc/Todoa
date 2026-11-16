@@ -15,7 +15,7 @@
 | Unicode 与长备注 | 完整保存任务允许的标题、清单名称和 100000 字符备注，包含补充平面字符；快照独立于手写条目的长度约束。 |
 | 搜索、总结与导出 | 自动事项参与现有搜索、状态／重点／主题筛选及阶段素材。浏览器实际下载 [Markdown](daily-journal.md)，包含两项任务与手写总结。 |
 | 数据库升级与备份 | Schema 6 升级后原日记及版本号保持，补录现存完成时间；Schema 6 备份仍可校验。自动快照在删除原任务后经真实备份恢复仍完整。 |
-| 浏览器持久化与隔离 | 临时任务刷新清空后，已保存日记快照仍在且不重复；银行样本保持独立命名空间，刷新不重复生成当日样本。 |
+| 浏览器持久化与隔离 | 临时任务刷新清空后，已保存日记快照仍在且不重复；工作样本保持独立命名空间，刷新不重复生成当日样本。 |
 | 小屏 | 1280px 与 390px 观察时间线，390px 编辑面板无横向溢出；浏览器运行未捕获页面异常。 |
 
 ## 检查命令
@@ -32,17 +32,17 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 git diff --check
 ```
 
-浏览器使用本机 Edge 的独立无头上下文与 Asia/Shanghai 时区，测试普通入口及虚构银行样本。重跑 [browser-qa.mjs](browser-qa.mjs) 前设置 `TODOA_QA_NODE_MODULES` 为 Codex 依赖目录的 `node_modules`，并设置 `TODOA_QA_URL` 为本地开发服务器地址；默认 `http://127.0.0.1:1424`。结构化结果见 [browser-results.json](browser-results.json)。
+浏览器使用本机 Edge 的独立无头上下文与 Asia/Shanghai 时区，测试普通入口及虚构工作样本。重跑 [browser-qa.mjs](browser-qa.mjs) 前设置 `TODOA_QA_NODE_MODULES` 为 Codex 依赖目录的 `node_modules`，并设置 `TODOA_QA_URL` 为本地开发服务器地址；默认 `http://127.0.0.1:1424`。结构化结果见 [browser-results.json](browser-results.json)。
 
 ## 界面证据
 
 - [宽屏日记](automatic-daily-journal-wide.png)
 - [390px 日记](automatic-daily-journal-narrow.png)
 - [390px 编辑面板](automatic-daily-journal-editor.png)
-- [银行样本日记](bank-automatic-journal.png)
+- [工作样本日记](bank-automatic-journal.png)
 
 ## 数据与交付边界
 
-旧版本已经撤销并清空完成时间的记录无法准确补回；不会推断客户、业务结果或银行业绩。历史任务的补录内容取自升级时仍存在的任务，启用后的新记录保存完成当时的快照。
+旧版本已经撤销并清空完成时间的记录无法准确补回；不会推断业务结果。历史任务的补录内容取自升级时仍存在的任务，启用后的新记录保存完成当时的快照。
 
 浏览器任务仍是临时预览数据，桌面 SQLite 保存路径另由原生与数据库测试验证。本轮未制作安装包，未做 Tauri 原生窗口或安装后 GUI 验收，未提交或推送。生产构建仅保留既有大于 500 kB 的分包提示。

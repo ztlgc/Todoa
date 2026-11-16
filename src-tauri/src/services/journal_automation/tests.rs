@@ -17,6 +17,9 @@ async fn database() -> SqlitePool {
         include_str!("../../../migrations/0005_journal.sql"),
         include_str!("../../../migrations/0006_task_content.sql"),
         include_str!("../../../migrations/0007_journal_task_completions.sql"),
+        include_str!("../../../migrations/0008_journal_content.sql"),
+        include_str!("../../../migrations/0009_journal_review.sql"),
+        include_str!("../../../migrations/0010_recurrence_progress.sql"),
     ] {
         sqlx::raw_sql(sql).execute(&pool).await.unwrap();
     }

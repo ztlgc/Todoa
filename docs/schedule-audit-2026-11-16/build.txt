@@ -1,0 +1,31 @@
+vite v8.3.2 building client environment for production...
+transforming...
+✓ 2458 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/quick-add.html                                          0.55 kB │ gzip:   0.35 kB
+dist/index.html                                              0.61 kB │ gzip:   0.34 kB
+dist/assets/geist-cyrillic-ext-wght-normal-DjL33-gN.woff2    7.42 kB
+dist/assets/geist-vietnamese-wght-normal-6IgcOCM7.woff2      8.00 kB
+dist/assets/geist-cyrillic-wght-normal-BEAKL7Jp.woff2       15.08 kB
+dist/assets/geist-latin-ext-wght-normal-DC-KSUi6.woff2      16.51 kB
+dist/assets/geist-latin-wght-normal-BgDaEnEv.woff2          29.40 kB
+dist/assets/main-rFFJ1I4b.css                               14.82 kB │ gzip:   3.17 kB
+dist/assets/src-msoPx7ur.css                                57.08 kB │ gzip:  10.61 kB
+dist/assets/quickAdd-CJaN84HP.js                             3.24 kB │ gzip:   1.70 kB
+dist/assets/src-CspkBA-W.js                                307.44 kB │ gzip:  99.71 kB
+dist/assets/main-DJle0SKa.js                               927.93 kB │ gzip: 285.51 kB
+
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 8.82s
+[PLUGIN_TIMINGS] JavaScript callbacks ran for 8.5s of this 8.8s build (96%).
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin @tailwindcss/vite:generate:build transform (94%, 8.3s, 2 calls)
+Additional callback time came from the callbacks below and from callbacks under 1s.
+1 callback is listed without a time. Its calls overlapped, so the time inside one call includes work from other calls. To find its cost, profile the build with `node --cpu-prof`:
+  - plugin vite:build-html transform (2 calls)
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.

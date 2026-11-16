@@ -1,0 +1,165 @@
+   Compiling todoa v1.0.6 (E:\2025Code\Todoa\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.51s
+     Running unittests src\lib.rs (src-tauri\target\x86_64-pc-windows-msvc\debug\deps\todoa_lib-9c276b3d6bffea72.exe)
+
+running 72 tests
+test commands::quick_add::tests::validates_injected_window_source ... ok
+test db::backup::tests::active_wal_snapshot_relations_and_concurrent_writer ... ok
+test db::backup::tests::actual_windows_file_locks_readonly_publish_and_rollback_retry ... ok
+test db::backup::tests::crash_child ... ok
+test db::backup::tests::current_restore_ready_and_validated_before_restore_snapshot ... ok
+test db::backup::tests::injected_disk_full_does_not_destroy_live_database_or_old_backup ... ok
+test db::backup::tests::journal_is_bounded_and_cannot_select_external_paths_or_invalid_stages ... ok
+test db::backup::tests::journal_snapshots_survive_task_deletion_backup_and_restore ... ok
+test db::backup::tests::previous_schema_backup_remains_valid_for_migration_on_restore ... ok
+test db::backup::tests::real_process_crashes_before_after_every_group_move_and_during_rollback ...
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+ok
+test db::backup::tests::recurrence_progress_survives_backup_restore_and_recompletion ... ok
+test db::backup::tests::rejects_corruption_identity_future_history_schema_foreign_keys_and_sidecars ... ok
+test db::backup::tests::rich_content_images_revision_and_backup_round_trip ... ok
+test db::backup::tests::rich_journal_and_local_images_round_trip_through_backup ... ok
+test db::backup::tests::schema_four_backup_is_still_accepted ... ok
+test db::backup::tests::schema_seven_backup_upgrades_without_changing_journals_or_completion_snapshots ... ok
+test db::backup::tests::schema_six_backup_remains_accepted_before_automatic_journal_migration ... ok
+test db::backup::tests::success_preserves_uncheckpointed_original_wal_in_before_restore_snapshot ...
+running 1 test
+ok
+test db::backup::tests::wal_fixture_child ... ok
+test db::tests::failed_migration_does_not_leave_partial_business_schema ... ok
+test db::tests::migration_schema_constraints_and_repeat ... ok
+test db::tests::pool_config_new_connection_and_lock_timeout ... ok
+test db::tests::preflight_rejects_corrupt_file ... ok
+test db::tests::preflight_rejects_unknown_future_and_bad_identity ... ok
+test db::tests::schema_six_upgrade_preserves_manual_journals_and_backfills_available_completions ... ok
+test db::tests::upgrade_preserves_tasks_and_requires_complete_migration_history ... ok
+test db::tests::upgrading_schema_nine_backfills_only_completed_recurrence_progress ... ok
+test global_shortcut::tests::one_press_ignores_repeat_and_release_and_stops_on_exit ... ok
+test lifecycle::tests::only_a_successful_tray_allows_main_to_hide ... ok
+test lifecycle::tests::quit_rejects_new_writes_and_drains_existing_without_intercepting_exit ... ok
+test preferences::tests::old_quiet_preferences_are_ignored_and_cannot_pause_notifications ... ok
+test preferences::tests::preferences_survive_reload_and_failed_save_keeps_runtime_truth ... ok
+test reminder_scheduler::tests::clock_changes_and_reschedule_invalidate_retry_and_old_accepted_plan ... ok
+test reminder_scheduler::tests::clock_rollback_cannot_break_monotonic_delivery_throttle ... ok
+test reminder_scheduler::tests::disabled_outlet_never_consumes_any_due_reminder ... ok
+test reminder_scheduler::tests::edit_delete_completion_undo_and_restart_persistence ... ok
+test reminder_scheduler::tests::exact_due_catchup_order_throttle_concurrent_reconcile_and_stop ... ok
+test reminder_scheduler::tests::failure_backoff_and_successful_notification_failed_mark_does_not_resend ... ok
+test reminder_scheduler::tests::pausing_preserves_due_reminder_and_resume_delivers_once ... ok
+test reminder_scheduler::tests::transaction_rolls_back_status_when_cancel_fails_and_validates_inputs ... ok
+test reminder_scheduler::tests::worker_wakes_for_changes_stops_and_backoff_is_capped ... ok
+test services::journal::tests::failed_link_rolls_back_task_and_invalid_sources_cannot_create_tasks ... ok
+test services::journal::tests::follow_up_is_atomic_idempotent_and_survives_task_edits ... ok
+test services::journal_automation::tests::automatic_write_failure_rolls_back_completion_reminders_and_recurrence ... ok
+test services::journal_automation::tests::completion_uses_local_actual_date_and_preserves_snapshots_and_manual_revision ... ok
+test services::journal_automation::tests::concurrent_completion_and_recurring_instances_are_deduplicated ... ok
+test services::journal_automation::tests::reconciliation_captures_available_legacy_and_trashed_tasks_once_without_touching_tombstones ... ok
+test services::journal_automation::tests::undo_and_recompletion_keep_cross_day_history_without_reviving_same_day_entries ... ok
+test services::journal_content::tests::image_collection_preserves_saved_trashed_and_draft_images_and_aborts_on_bad_content ... ok
+test services::journal_content::tests::images_are_owned_by_the_journal_and_survive_soft_delete_without_cross_date_access ... ok
+test services::journal_content::tests::normalized_utf16_limits_match_browser_and_rejections_leave_saved_content_intact ... ok
+test services::journal_content::tests::rich_content_is_independent_and_conflicts_preserve_the_last_saved_document ... ok
+test services::journal_review::tests::append_limit_failure_rolls_back_both_body_and_link ... ok
+test services::journal_review::tests::month_legacy_content_overlap_both_directions_and_no_image_copy ... ok
+test services::journal_review::tests::revisions_idempotency_and_source_lifecycle ... ok
+test services::journal_review::tests::tasks_match_exact_day_deduplicate_and_report_cross_day_revocation ... ok
+test services::quick_add::tests::creates_only_inbox_with_committed_defaults_and_preserves_failures ... ok
+test services::quick_add::tests::validates_unicode_title_before_sql ... ok
+test services::recurrence::tests::persists_advanced_rule_and_stops_atomically ... ok
+test services::recurrence::tests::shared_calendar_cases ... ok
+test services::recurrence::tests::validates_and_advances_count ... ok
+test services::schedule::audit_tests::failed_successor_rolls_back_completion_reminders_and_progress ... ok
+test services::schedule::audit_tests::invalid_calendar_values_leave_the_previous_schedule_intact ... ok
+test services::schedule::audit_tests::recompletion_remains_idempotent_even_when_the_successor_was_deleted ... ok
+test services::schedule::audit_tests::shared_legacy_calendar_cases_preserve_precision_and_handle_exhaustion ... ok
+test services::schedule::audit_tests::timezone_gaps_and_overlaps_match_browser_resolution_without_panics ... ok
+test services::schedule::audit_tests::unchanged_expired_reminders_do_not_block_or_rebuild_a_schedule ... ok
+test services::schedule::audit_tests::undo_restores_only_future_scheduled_reminders_without_recreating_successors ... ok
+test services::schedule::tests::advances_calendar_rules ... ok
+test services::schedule::tests::creates_reminders_and_next_occurrence_atomically ... ok
+test window_state::tests::exact_autostart_parameter_distinguishes_secondary_launches ... ok
+test window_state::tests::physical_workareas_negative_monitors_removal_and_dpi ... ok
+
+test result: ok. 72 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.64s

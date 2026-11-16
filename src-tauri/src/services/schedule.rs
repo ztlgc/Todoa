@@ -1,6 +1,6 @@
 use chrono::{
-    DateTime, Datelike, Duration, Local, LocalResult, NaiveDate, NaiveDateTime, SecondsFormat,
-    TimeZone, Timelike, Utc,
+    DateTime, Datelike, Duration, Local, LocalResult, NaiveDate, NaiveDateTime, Offset,
+    SecondsFormat, TimeZone, Timelike, Utc,
 };
 use serde::Deserialize;
 use sqlx::{Row, SqlitePool};
@@ -42,6 +42,18 @@ fn valid_priority(value: &str) -> bool {
 }
 fn stamp(date: DateTime<Utc>) -> String {
     date.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+fn parse_due(value: &str) -> Result<String, &'static str> {
+    let date = DateTime::parse_from_rfc3339(value).map_err(|_| "INVALID_DUE_TIME")?;
+    let utc = date.with_timezone(&Utc);
+    if !(1..=9999).contains(&date.year())
+        || !(1..=9999).contains(&utc.year())
+        || date.offset().local_minus_utc().abs() > 14 * 3600
+        || date.nanosecond() >= 1_000_000_000
+    {
+        return Err("INVALID_DUE_TIME");
+    }
+    Ok(stamp(utc))
 }
 fn valid_rule(rule: &str) -> bool {
     if rule.starts_with('{') {
@@ -92,11 +104,7 @@ pub async fn create(
     let due = input
         .due_at
         .as_ref()
-        .map(|value| {
-            DateTime::parse_from_rfc3339(value)
-                .map(|date| stamp(date.with_timezone(&Utc)))
-                .map_err(|_| "INVALID_DUE_TIME")
-        })
+        .map(|value| parse_due(value))
         .transpose()?;
     if input
         .repeat_rule
@@ -108,6 +116,11 @@ pub async fn create(
     }
     if input.remind_at.len() > 16
         || input.reminder_offsets.len() > 16
+        || input
+            .reminder_offsets
+            .iter()
+            .enumerate()
+            .any(|(index, offset)| input.reminder_offsets[..index].contains(offset))
         || input
             .reminder_offsets
             .iter()
@@ -191,11 +204,7 @@ pub async fn update(
     let due = input
         .due_at
         .as_ref()
-        .map(|value| {
-            DateTime::parse_from_rfc3339(value)
-                .map(|date| stamp(date.with_timezone(&Utc)))
-                .map_err(|_| "INVALID_DUE_TIME")
-        })
+        .map(|value| parse_due(value))
         .transpose()?;
     let mut tx = pool.begin().await.map_err(|_| "TASK_TRANSACTION_FAILED")?;
     let row = sqlx::query(
@@ -221,31 +230,41 @@ pub async fn update(
         return Err("INVALID_DUE_TIME");
     }
     if let Some(date) = &next_date {
-        if NaiveDate::parse_from_str(date, "%Y-%m-%d").is_err() {
+        if super::recurrence::date(date).is_none() {
             return Err("INVALID_DUE_TIME");
         }
     }
-    let next_rule = if input.has_repeat {
+    let mut next_rule = if input.has_repeat {
         input.repeat_rule.clone()
     } else if input.clear_repeat {
         None
     } else {
         row.get::<Option<String>, _>("repeat_rule")
     };
+    if next_due_time.is_none() && next_date.is_none() && !input.has_repeat {
+        next_rule = None;
+    }
     if next_rule.as_deref().is_some_and(|r| !valid_rule(r))
         || (next_rule.is_some() && next_due_time.is_none() && next_date.is_none())
     {
         return Err("INVALID_REPEAT_RULE");
     }
+    let previous_offsets =
+        serde_json::from_str::<Vec<i64>>(&row.get::<String, _>("reminder_offsets"))
+            .map_err(|_| "INVALID_REMINDER_RULE")?;
     let offsets = if next_due_time.is_none() {
         vec![]
     } else {
-        input.reminder_offsets.clone().unwrap_or(
-            serde_json::from_str::<Vec<i64>>(&row.get::<String, _>("reminder_offsets"))
-                .map_err(|_| "INVALID_REMINDER_RULE")?,
-        )
+        input
+            .reminder_offsets
+            .clone()
+            .unwrap_or_else(|| previous_offsets.clone())
     };
     if offsets.len() > 16
+        || offsets
+            .iter()
+            .enumerate()
+            .any(|(index, offset)| offsets[..index].contains(offset))
         || offsets.iter().any(|n| !(0..=525600).contains(n))
         || (next_due_time.is_none() && !offsets.is_empty())
     {
@@ -253,6 +272,9 @@ pub async fn update(
     }
     if input.reminder_offsets.is_some()
         && offsets.iter().any(|offset| {
+            if next_due_time == previous && previous_offsets.contains(offset) {
+                return false;
+            }
             DateTime::parse_from_rfc3339(next_due_time.as_deref().unwrap_or("")).map_or(true, |d| {
                 (d - Duration::minutes(*offset)).timestamp_millis() <= now
             })
@@ -260,7 +282,11 @@ pub async fn update(
     {
         return Err("REMINDER_MUST_BE_FUTURE");
     }
-    let changed = (input.has_due && due != previous) || input.reminder_offsets.is_some();
+    let changed = next_due_time != previous
+        || offsets.len() != previous_offsets.len()
+        || offsets
+            .iter()
+            .any(|offset| !previous_offsets.contains(offset));
     let stamp_now = crate::services::reminders::timestamp(now);
     sqlx::query("UPDATE tasks SET title=COALESCE(?,title),notes=COALESCE(?,notes),list_id=CASE WHEN ? THEN ? ELSE list_id END,due_at=CASE WHEN ? THEN ? ELSE due_at END,repeat_rule=CASE WHEN ? OR (? AND ? IS NULL) THEN NULL ELSE repeat_rule END,reminder_offsets=CASE WHEN ? AND ? IS NULL THEN '[]' ELSE reminder_offsets END,priority=COALESCE(?,priority),updated_at=? WHERE id=? AND deleted_at IS NULL")
         .bind(input.title.map(|s| s.trim().to_string())).bind(input.notes).bind(input.has_list).bind(input.list_id)
@@ -316,28 +342,68 @@ fn days_in_month(year: i32, month: u32) -> u32 {
         .expect("previous day")
         .day()
 }
-pub(super) fn local_time(naive: NaiveDateTime) -> DateTime<Utc> {
-    let resolved = match Local.from_local_datetime(&naive) {
+fn resolve_local<T: TimeZone>(zone: &T, naive: NaiveDateTime) -> Option<DateTime<Utc>> {
+    let resolved = match zone.from_local_datetime(&naive) {
         LocalResult::Single(date) => date,
-        LocalResult::Ambiguous(earlier, _) => earlier,
+        LocalResult::Ambiguous(earlier, later) => earlier.min(later),
         LocalResult::None => {
-            let shifted = naive + Duration::hours(1);
-            Local
-                .from_local_datetime(&shifted)
-                .earliest()
-                .expect("valid shifted local time")
+            let mut before = None;
+            let mut after = None;
+            for minutes in 1..=2880 {
+                if before.is_none() {
+                    before = naive
+                        .checked_sub_signed(Duration::minutes(minutes))
+                        .and_then(|time| zone.from_local_datetime(&time).earliest());
+                }
+                if after.is_none() {
+                    after = naive
+                        .checked_add_signed(Duration::minutes(minutes))
+                        .and_then(|time| zone.from_local_datetime(&time).earliest());
+                }
+                if let (Some(before), Some(after)) = (&before, &after) {
+                    let gap = after.offset().fix().local_minus_utc()
+                        - before.offset().fix().local_minus_utc();
+                    let shifted = naive.checked_add_signed(Duration::seconds(i64::from(gap)))?;
+                    return zone
+                        .from_local_datetime(&shifted)
+                        .earliest()
+                        .map(|time| time.with_timezone(&Utc))
+                        .filter(|time| (1..=9999).contains(&time.year()));
+                }
+            }
+            return None;
         }
     };
-    resolved.with_timezone(&Utc)
+    Some(resolved.with_timezone(&Utc)).filter(|time| (1..=9999).contains(&time.year()))
+}
+pub(super) fn local_time(naive: NaiveDateTime) -> Option<DateTime<Utc>> {
+    resolve_local(&Local, naive)
 }
 pub fn next_due(prior: DateTime<Utc>, rule: &str, after: DateTime<Utc>) -> Option<DateTime<Utc>> {
     if rule.starts_with('{') {
         return super::recurrence::next(prior, &super::recurrence::parse(rule)?, after);
     }
+    if !valid_rule(rule) {
+        return None;
+    }
+    let after = after.max(prior);
     let local = prior.with_timezone(&Local);
     let mut date = local.date_naive();
     let clock = local.time();
-    for _ in 0..10_000 {
+    if let Some((unit, interval)) = rule.split_once(':') {
+        if unit == "day" || unit == "week" {
+            let step = interval.parse::<i64>().ok()? * if unit == "week" { 7 } else { 1 };
+            let days = (after.with_timezone(&Local).date_naive() - date).num_days();
+            let skipped = days.div_euclid(step).max(0);
+            date = date.checked_add_signed(Duration::days(skipped * step))?;
+            if let Some(candidate) = local_time(date.and_time(clock)) {
+                if candidate > after {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+    while date.year() <= 9999 {
         let parts: Vec<&str> = rule.split(':').collect();
         date = match parts.as_slice() {
             ["day", n] => date.checked_add_signed(Duration::days(n.parse::<i64>().ok()?))?,
@@ -387,6 +453,9 @@ pub fn next_due(prior: DateTime<Utc>, rule: &str, after: DateTime<Utc>) -> Optio
                 let day = day.parse::<u32>().ok()?;
                 let mut year = date.year();
                 loop {
+                    if year > 9999 {
+                        return None;
+                    }
                     if let Some(candidate) = NaiveDate::from_ymd_opt(year, month, day) {
                         if candidate > date {
                             break candidate;
@@ -397,7 +466,10 @@ pub fn next_due(prior: DateTime<Utc>, rule: &str, after: DateTime<Utc>) -> Optio
             }
             _ => return None,
         };
-        let next = local_time(date.and_hms_opt(clock.hour(), clock.minute(), clock.second())?);
+        if date.year() > 9999 {
+            return None;
+        }
+        let next = local_time(date.and_time(clock))?;
         if next > after {
             return Some(next);
         }
@@ -414,6 +486,11 @@ pub async fn create_next(
     let Some(rule) = row.get::<Option<String>, _>("repeat_rule") else {
         return Ok(());
     };
+    if sqlx::query("INSERT INTO task_recurrence_progress(task_id,processed_at) VALUES(?,?) ON CONFLICT(task_id) DO NOTHING")
+        .bind(task_id).bind(crate::services::reminders::timestamp(now))
+        .execute(&mut **tx).await.map_err(|_| "TASK_CREATE_FAILED")?.rows_affected() == 0 {
+        return Ok(());
+    }
     let date_only = row.get::<Option<String>, _>("due_date");
     let due: String = match row.get::<Option<String>, _>("due_at") {
         Some(time) => time,
@@ -423,9 +500,7 @@ pub async fn create_next(
                 "%Y-%m-%d",
             )
             .map_err(|_| "INVALID_DUE_TIME")?;
-            Local
-                .from_local_datetime(&date.and_hms_opt(12, 0, 0).unwrap())
-                .earliest()
+            local_time(date.and_hms_opt(12, 0, 0).ok_or("INVALID_DUE_TIME")?)
                 .ok_or("INVALID_DUE_TIME")?
                 .to_rfc3339()
         }
@@ -436,7 +511,7 @@ pub async fn create_next(
     let after = DateTime::from_timestamp_millis(now).ok_or("INVALID_DUE_TIME")?;
     let next = match next_due(prior, &rule, after) {
         Some(next) => next,
-        None if super::recurrence::parse(&rule).is_some() => return Ok(()),
+        None if valid_rule(&rule) => return Ok(()),
         None => return Err("INVALID_REPEAT_RULE"),
     };
     let next_rule = super::recurrence::advance(&rule);
@@ -449,7 +524,11 @@ pub async fn create_next(
     let new_id = result.last_insert_rowid();
     sqlx::query("UPDATE tasks SET content_json=?,due_date=? WHERE id=?")
         .bind(row.get::<Option<String>, _>("content_json"))
-        .bind(date_only.map(|_| next.with_timezone(&Local).format("%Y-%m-%d").to_string()))
+        .bind(
+            date_only
+                .as_ref()
+                .map(|_| next.with_timezone(&Local).format("%Y-%m-%d").to_string()),
+        )
         .bind(new_id)
         .execute(&mut **tx)
         .await
@@ -465,6 +544,9 @@ pub async fn create_next(
     .map_err(|_| "TASK_TAG_COPY_FAILED")?;
     let minutes: Vec<i64> = serde_json::from_str(&offsets).map_err(|_| "INVALID_REMINDER_RULE")?;
     for offset in minutes {
+        if date_only.is_some() {
+            break;
+        }
         let remind = next - Duration::minutes(offset);
         if remind.timestamp_millis() <= now {
             continue;
@@ -475,6 +557,9 @@ pub async fn create_next(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod audit_tests;
 
 #[cfg(test)]
 mod tests {
@@ -527,6 +612,13 @@ mod tests {
             .execute(&pool)
             .await
             .unwrap();
+            for migration in [
+                include_str!("../../migrations/0008_journal_content.sql"),
+                include_str!("../../migrations/0009_journal_review.sql"),
+                include_str!("../../migrations/0010_recurrence_progress.sql"),
+            ] {
+                sqlx::raw_sql(migration).execute(&pool).await.unwrap();
+            }
 
             let now = DateTime::parse_from_rfc3339("2026-10-05T01:00:00Z")
                 .unwrap()

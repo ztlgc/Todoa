@@ -17,3 +17,7 @@ it("rejects duplicate identities and malformed subtasks before saving", () => {
     expect(() => readSubtasks({ type: "doc", attrs: { subtasks: [bad] } })).toThrow();
   }
 });
+
+it.each(["0000-01-01", "2026-13-01", "2026-02-30"])("reports an invalid subtask calendar date consistently: %s", dueDate => {
+  expect(() => readSubtasks({ type: "doc", attrs: { subtasks: [{ id: "invalid-date", title: "检查", completed: false, dueDate }] } })).toThrow("子任务日期无效。");
+});

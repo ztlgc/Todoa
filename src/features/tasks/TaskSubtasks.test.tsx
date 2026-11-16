@@ -99,3 +99,12 @@ it("applies independent dates and time, discards dismissed changes and clears a 
   expect(changed.mock.lastCall?.[0][0]).not.toHaveProperty("dueAt");
   expect(changed.mock.lastCall?.[0][0]).not.toHaveProperty("dueDate");
 });
+
+it("preserves exact subtask instants when confirming without changes", async () => {
+  const dueAt = "2099-10-20T01:30:15.456Z";
+  const changed = setup([{ id: "precise", title: "保留精确时刻", completed: false, dueAt }]);
+  fireEvent.click(screen.getByLabelText("设置子任务日期：保留精确时刻"));
+  const popup = await screen.findByRole("dialog", { name: "子任务日期" });
+  fireEvent.click(within(popup).getByRole("button", { name: "确定" }));
+  expect(changed.mock.lastCall?.[0][0].dueAt).toBe(dueAt);
+});

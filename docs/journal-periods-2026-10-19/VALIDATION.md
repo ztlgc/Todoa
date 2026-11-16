@@ -18,4 +18,4 @@
 - [390px 年视图](year-narrow.png)
 - [实际月范围导出](month-export.md)
 
-以上均为隔离浏览器中的虚构银行工作材料。重跑先执行 `pnpm build`，再启动 `pnpm exec vite preview --host 127.0.0.1 --port 1424 --strictPort` 并执行 [browser-qa.mjs](browser-qa.mjs)，可通过 `TODOA_QA_URL` 改写地址。使用生产预览避免截图／导出文件写入项目时触发开发服务器刷新。
+以上均为隔离浏览器中的虚构工作材料。重跑先执行 `pnpm build`，再启动 `pnpm exec vite preview --host 127.0.0.1 --port 1424 --strictPort` 并执行 [browser-qa.mjs](browser-qa.mjs)，可通过 `TODOA_QA_URL` 改写地址。使用生产预览避免截图／导出文件写入项目时触发开发服务器刷新。

@@ -38,12 +38,14 @@ function ScheduleForm({ item, onApply }: { item: Subtask; onApply: (schedule: Su
   const [time, setTime] = useState(initial.slice(11, 16) || "09:00");
   const [timeOpen, setTimeOpen] = useState(!!initial);
   const [error, setError] = useState("");
+  const [zone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   const start = firstOfMonth(month);
   start.setDate(1 - (start.getDay() + 6) % 7);
   const cells = Array.from({ length: 42 }, (_, index) => { const value = new Date(start); value.setDate(start.getDate() + index); return value; });
   function save() {
     try {
-      onApply(timeOpen ? { dueAt: fromLocalInput(`${date}T${time}`)! } : { dueDate: date });
+      if (zone !== Intl.DateTimeFormat().resolvedOptions().timeZone) throw new Error("系统时区已改变，请关闭后重新核对日期。");
+      onApply(timeOpen ? { dueAt: date === initial.slice(0, 10) && time === initial.slice(11, 16) ? item.dueAt! : fromLocalInput(`${date}T${time}`)! } : { dueDate: date });
     } catch (cause) { setError(cause instanceof Error ? cause.message : "日期无效，请重新选择。"); }
   }
   return <div className="space-y-3">

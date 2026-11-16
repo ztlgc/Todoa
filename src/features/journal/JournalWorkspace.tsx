@@ -11,7 +11,7 @@ import type { HighlightInput, JournalHighlight } from "@/domain/journalReview";
 import type { TaskList } from "@/domain/list";
 import { useLocalClock } from "@/features/tasks/useLocalClock";
 import { JournalNoteEditor, type JournalFlush } from "./JournalNoteEditor";
-import { journalKey, useJournalDetail, useJournalHighlights, useJournalIndex, useJournalMaterials, useJournalRange } from "./queries";
+import { journalDetailOptions, journalKey, journalRangeOptions, useJournalDetail, useJournalHighlights, useJournalIndex, useJournalMaterials, useJournalRange } from "./queries";
 import { JournalCalendar } from "./JournalCalendar";
 import { JournalCompletedTasks } from "./JournalCompletedTasks";
 import { JournalPeriodView } from "./JournalPeriodView";
@@ -81,9 +81,25 @@ export function JournalWorkspace({ onDirtyChange, onBusyChange, onBeforeLeave }:
   }, [today, selected.kind, selected.start, readyVersion, busy, view, weekly]);
   async function choose(kind: JournalKind, start: string, nextView: View = kind === "month" || kind === "year" ? kind : "day", nextWeekly = false) {
     const version = ++navigationVersion.current;
-    followingToday.current = nextView === "day" && kind === "day" && start === today && !nextWeekly;
     if (draftRef.current) { setNotice("请先保存或取消正在编辑的重点后再切换。"); return; }
     if (!await prepareLeave() || !mounted.current || version !== navigationVersion.current) return;
+    // Keep the current page mounted until the target document is available.
+    // A short loading page would remove the scrollbar and clamp scroll position.
+    if (nextView !== "search") {
+      const nextReview = nextView === "month" || nextView === "year";
+      const nextPeriod = journalPeriod(nextReview ? nextView : nextWeekly ? "week" : "day", start);
+      try {
+        if (nextWeekly) await client.fetchQuery(journalRangeOptions(nextPeriod.start, nextPeriod.end));
+        else await client.fetchQuery(journalDetailOptions(nextReview ? nextView : kind, nextReview ? nextPeriod.start : start));
+      } catch {
+        if (mounted.current && version === navigationVersion.current) setNotice("记录读取失败，请重试切换。当前内容已保留。");
+        return;
+      }
+      if (!mounted.current || version !== navigationVersion.current) return;
+      // Typing can continue while the target is loading; flush those edits too.
+      if (!await prepareLeave() || !mounted.current || version !== navigationVersion.current) return;
+    }
+    followingToday.current = nextView === "day" && kind === "day" && start === today && !nextWeekly;
     setSelected({ kind, start }); setView(nextView); setWeekly(nextWeekly); setMore(false); setNotice(""); setOriginals(false); setRawMonth(null); setTrash(false);
   }
   function move(offset: number) {

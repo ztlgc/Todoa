@@ -8,6 +8,57 @@ use tempfile::TempDir;
 const TIME: &str = "2026-10-04T01:02:03.004Z";
 
 #[test]
+fn recurrence_progress_survives_backup_restore_and_recompletion() {
+    tauri::async_runtime::block_on(async {
+        let source = TempDir::new().unwrap();
+        let destination = TempDir::new().unwrap();
+        let pool = database(source.path(), "重复任务备份").await;
+        database(destination.path(), "旧数据").await.close().await;
+        sqlx::query(
+            "UPDATE tasks SET due_at='2099-11-16T01:30:15.456Z',repeat_rule='day:1' WHERE id=1",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        crate::services::reminders::update_status(&pool, 1, "completed", 1_791_072_000_000)
+            .await
+            .unwrap();
+        let target = source.path().join("recurrence.db");
+        backup(&pool, source.path(), &target, false).await.unwrap();
+        validate(&target).await.unwrap();
+        stage(destination.path(), &target).await.unwrap();
+        before_boot(destination.path()).await.unwrap();
+        let restored = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(SqliteConnectOptions::new().filename(destination.path().join("todo.db")))
+            .await
+            .unwrap();
+        crate::services::reminders::update_status(&restored, 1, "todo", 1_791_072_001_000)
+            .await
+            .unwrap();
+        crate::services::reminders::update_status(&restored, 1, "completed", 1_791_072_002_000)
+            .await
+            .unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM tasks")
+                .fetch_one(&restored)
+                .await
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM task_recurrence_progress")
+                .fetch_one(&restored)
+                .await
+                .unwrap(),
+            1
+        );
+        restored.close().await;
+        pool.close().await;
+    });
+}
+
+#[test]
 fn rich_journal_and_local_images_round_trip_through_backup() {
     tauri::async_runtime::block_on(async {
         let source = TempDir::new().unwrap();
@@ -107,6 +158,12 @@ fn schema_seven_backup_upgrades_without_changing_journals_or_completion_snapshot
     tauri::async_runtime::block_on(async {
         let root = TempDir::new().unwrap();
         let pool = database(root.path(), "task").await;
+        sqlx::raw_sql(
+            "DROP TABLE task_recurrence_progress; DELETE FROM _sqlx_migrations WHERE version=10;",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
         sqlx::raw_sql("DROP TABLE journal_review_sources; DROP TABLE journal_highlights; DELETE FROM _sqlx_migrations WHERE version=9; DROP TABLE journal_assets; ALTER TABLE journal_records DROP COLUMN content_json; ALTER TABLE journal_records DROP COLUMN content_revision; DELETE FROM _sqlx_migrations WHERE version=8; PRAGMA user_version=7;").execute(&pool).await.unwrap();
         crate::services::reminders::update_status(&pool, 1, "completed", 1791104523004)
             .await
@@ -150,6 +207,12 @@ fn schema_six_backup_remains_accepted_before_automatic_journal_migration() {
     tauri::async_runtime::block_on(async {
         let source = TempDir::new().unwrap();
         let pool = database(source.path(), "Schema six task").await;
+        sqlx::raw_sql(
+            "DROP TABLE task_recurrence_progress; DELETE FROM _sqlx_migrations WHERE version=10;",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
         // Recreate the exact previous schema/history, with its handwritten data.
         sqlx::raw_sql("DROP TABLE journal_review_sources; DROP TABLE journal_highlights; DELETE FROM _sqlx_migrations WHERE version=9; DROP TABLE journal_assets; ALTER TABLE journal_records DROP COLUMN content_json; ALTER TABLE journal_records DROP COLUMN content_revision; DROP TABLE journal_task_completions; DELETE FROM _sqlx_migrations WHERE version>=7; PRAGMA user_version=6;")
             .execute(&pool).await.unwrap();
@@ -364,6 +427,13 @@ async fn database(root: &Path, title: &str) -> SqlitePool {
                 "journal_review".into(),
                 MigrationType::ReversibleUp,
                 include_str!("../../../migrations/0009_journal_review.sql").into(),
+                false,
+            ),
+            Migration::new(
+                10,
+                "recurrence_progress".into(),
+                MigrationType::ReversibleUp,
+                include_str!("../../../migrations/0010_recurrence_progress.sql").into(),
                 false,
             ),
         ]),

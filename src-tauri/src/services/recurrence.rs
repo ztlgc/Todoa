@@ -22,7 +22,7 @@ pub struct Rule {
     pub end_date: Option<String>,
     pub count: u32,
 }
-fn date(value: &str) -> Option<NaiveDate> {
+pub(super) fn date(value: &str) -> Option<NaiveDate> {
     let parsed = NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()?;
     (parsed.year() >= 1 && parsed.year() <= 9999 && parsed.format("%Y-%m-%d").to_string() == value)
         .then_some(parsed)
@@ -164,7 +164,13 @@ pub fn next(prior: DateTime<Utc>, r: &Rule, after: DateTime<Utc>) -> Option<Date
         {
             return None;
         }
-        let next = super::schedule::local_time(d.and_time(clock));
+        let next = super::schedule::local_time(d.and_time(clock))?;
+        let actual = next.with_timezone(&Local).date_naive();
+        if !(1..=9999).contains(&actual.year())
+            || (r.end == "date" && actual > date(r.end_date.as_deref()?)?)
+        {
+            return None;
+        }
         (next > cutoff).then_some(next)
     };
     if r.basis == "completion" {
@@ -321,6 +327,9 @@ mod tests {
                 include_str!("../../migrations/0005_journal.sql"),
                 include_str!("../../migrations/0006_task_content.sql"),
                 include_str!("../../migrations/0007_journal_task_completions.sql"),
+                include_str!("../../migrations/0008_journal_content.sql"),
+                include_str!("../../migrations/0009_journal_review.sql"),
+                include_str!("../../migrations/0010_recurrence_progress.sql"),
             ] {
                 sqlx::raw_sql(migration).execute(&pool).await.unwrap();
             }

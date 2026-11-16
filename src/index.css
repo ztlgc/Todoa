@@ -136,6 +136,8 @@
     }
   html {
     @apply font-sans;
+    /* Keep the centered workspace still when a view gains or loses scrolling. */
+    scrollbar-gutter: stable;
     }
 }
 /* Task content is an editor document, independent of surrounding UI resets. */

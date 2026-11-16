@@ -139,6 +139,7 @@
 .daily-task-list .is-revoked summary>span { text-decoration:line-through; }
 .daily-note { padding-top:20px; }
 .daily-note .task-content { min-height:320px; overflow-wrap:anywhere; padding-bottom:40px; }
+.daily-editor-loading { min-height:320px; }
 .daily-empty { padding:22px 0; color:var(--muted-foreground); font-size:13px; line-height:1.8; }
 .daily-history { min-width:0; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 12px; align-self:start; }
 .daily-search { display:flex; align-items:center; gap:4px; color:var(--muted-foreground); }

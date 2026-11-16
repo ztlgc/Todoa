@@ -9,7 +9,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { TaskSchedulePicker } from "./TaskSchedulePicker";
 import type { Task } from "@/domain/task";
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const task: Task = {
   id: 1,
   title: "任务",
@@ -140,3 +140,43 @@ async function chooseOption(name: string) {
   fireEvent.pointerDown(option, { pointerType: "mouse" });
   fireEvent.click(option);
 }
+
+it("saves an unchanged overdue schedule without recreating reminders or losing precision", async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  const dueAt = "2000-10-08T01:30:15.456Z";
+  render(<TaskSchedulePicker task={{ ...task, dueAt, repeatRule: "day:1", reminderOffsets: [0, 60] }} onSave={save} onClosed={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "确定" }));
+  await waitFor(() => expect(save).toHaveBeenCalledWith({ dueAt, dueDate: null, repeatRule: "day:1", reminderOffsets: [0, 60] }));
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("rejects a newly selected past reminder while preserving the draft after a save failure", async () => {
+  const save = vi.fn().mockRejectedValue(new Error("保存失败，稍后重试"));
+  render(<TaskSchedulePicker task={{ ...task, dueAt: "2000-10-08T01:30:15.456Z" }} onSave={save} onClosed={() => {}} />);
+  fireEvent.click(screen.getByRole("checkbox", { name: "准时" }));
+  fireEvent.click(screen.getByRole("button", { name: "确定" }));
+  await screen.findByText("提醒时间已过去，请调整日期或时间。");
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("checkbox", { name: "准时" }));
+  fireEvent.click(screen.getByRole("button", { name: "确定" }));
+  await screen.findByText("保存失败，稍后重试");
+  expect(screen.getByRole("dialog", { name: "日期与提醒" })).toBeTruthy();
+  expect(screen.getByLabelText("2000-10-08").getAttribute("aria-pressed")).toBe("true");
+});
+
+it.each(["0001-01-01", "9999-12-31"])("keeps the calendar within supported years at %s", dueDate => {
+  render(<TaskSchedulePicker task={{ ...task, dueDate }} onSave={vi.fn()} onClosed={() => {}} />);
+  expect(screen.getByRole("button", { name: dueDate }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: dueDate.startsWith("0001") ? "上个月" : "下个月" })).toHaveProperty("disabled", true);
+});
+
+it("blocks saving after a timezone change until the panel is reopened", async () => {
+  const resolved = new Intl.DateTimeFormat().resolvedOptions();
+  const options = vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue(resolved);
+  const save = vi.fn();
+  render(<TaskSchedulePicker task={{ ...task, dueDate: "2099-10-08" }} onSave={save} onClosed={() => {}} />);
+  options.mockReturnValue({ ...resolved, timeZone: resolved.timeZone === "UTC" ? "Asia/Shanghai" : "UTC" });
+  fireEvent.click(screen.getByRole("button", { name: "确定" }));
+  await screen.findByText("系统时区已改变，请关闭后重新核对日期。");
+  expect(save).not.toHaveBeenCalled();
+});

@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/react";
 import { parseTaskTime, parseTaskTitle } from "./task";
+import { validRecurrenceDate } from "./recurrence";
 
 export type SubtaskSchedule = { dueDate?: string; dueAt?: string };
 export type Subtask = { id: string; title: string; completed: boolean } & SubtaskSchedule;
@@ -15,7 +16,7 @@ export function readSubtasks(doc: JSONContent): Subtask[] {
     ids.add(item.id);
     const schedule: SubtaskSchedule = {};
     if (item.dueDate !== undefined) {
-      if (typeof item.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(item.dueDate) || item.dueDate.startsWith("0000") || new Date(`${item.dueDate}T12:00:00Z`).toISOString().slice(0, 10) !== item.dueDate) throw new Error("子任务日期无效。");
+      if (!validRecurrenceDate(item.dueDate)) throw new Error("子任务日期无效。");
       schedule.dueDate = item.dueDate;
     }
     if (item.dueAt !== undefined) schedule.dueAt = parseTaskTime(item.dueAt);

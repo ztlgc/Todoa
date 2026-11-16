@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { journalRepository } from "@/data/repositories/JournalRepository";
 import type { JournalInput, JournalKind, JournalRecord } from "@/domain/journal";
 import { journalReviewRepository } from "@/data/repositories/JournalReviewRepository";
@@ -12,14 +12,20 @@ export function useCreateJournalFollowUp() {
     onSuccess: id => Promise.all([invalidateTaskCaches(client, id), client.invalidateQueries({ queryKey: journalKey })]) });
 }
 export function useJournalRecords() { return useQuery({ queryKey: key, queryFn: () => journalRepository.list(), networkMode: "always" }); }
+export function journalDetailOptions(kind: JournalKind, start: string) {
+  return queryOptions({ queryKey: [...key, "detail", kind, start], queryFn: () => journalRepository.get(kind, start).then(value => value ?? null), networkMode: "always" });
+}
 export function useJournalDetail(kind: JournalKind, start: string, enabled = true) {
-  return useQuery({ queryKey: [...key, "detail", kind, start], queryFn: () => journalRepository.get(kind, start).then(value => value ?? null), enabled, networkMode: "always" });
+  return useQuery({ ...journalDetailOptions(kind, start), enabled });
 }
 export function useJournalIndex(from: string, to: string) {
   return useQuery({ queryKey: [...key, "index", from, to], queryFn: () => journalRepository.index(from, to), networkMode: "always" });
 }
+export function journalRangeOptions(from: string, to: string) {
+  return queryOptions({ queryKey: [...key, "range", from, to], queryFn: () => journalRepository.range(from, to), networkMode: "always" });
+}
 export function useJournalRange(from: string, to: string, enabled = true) {
-  return useQuery({ queryKey: [...key, "range", from, to], queryFn: () => journalRepository.range(from, to), enabled, networkMode: "always" });
+  return useQuery({ ...journalRangeOptions(from, to), enabled });
 }
 export function useJournalHighlights(from: string, to: string) {
   return useQuery({ queryKey: [...key, "highlights", from, to], queryFn: () => journalReviewRepository.list(from, to), networkMode: "always" });
